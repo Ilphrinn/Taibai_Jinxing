@@ -1,0 +1,30 @@
+# Secrets : jamais dans le depot
+.env
+.env.local
+.env.*.local
+
+# Dependances et artefacts
+node_modules/
+npm-debug.log*
+
+# Base de donnees locale
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Fichiers audio : trop lourds pour git. Voir README, section 5, pour les
+# faire arriver jusqu au serveur. On exclut par extension, et non le dossier
+# entier, afin de conserver l arborescence des categories.
+assets/musique/**/*.mp3
+assets/musique/**/*.ogg
+assets/musique/**/*.opus
+assets/musique/**/*.wav
+assets/musique/**/*.flac
+assets/musique/**/*.m4a
+assets/musique/**/*.aac
+assets/musique/**/*.webm
+
+# Systeme
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "name": "taibai-jinxing",
+  "version": "1.0.0",
+  "description": "Bot Discord pour le jeu de role sur la Chine mythologique — Taibai Jinxing",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "commandes": "node src/deploy-commands.js",
+    "commandes:purge": "node src/deploy-commands.js --purge",
+    "lien": "node src/invite.js",
+    "verif": "node --check src/index.js && node src/verif.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.0.8",
+    "prism-media": "^1.3.5"
+  },
+  "optionalDependencies": {
+    "@discordjs/opus": "^0.10.0"
+  },
+  "allowScripts": {
+    "ffmpeg-static@5.3.0": true
+  }
+}

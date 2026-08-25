@@ -1,0 +1,13 @@
+# Fins de ligne normalisees en LF dans le depot : l image Docker est un Linux,
+# et cela evite un diff entier au premier clone sous Windows.
+* text=auto eol=lf
+
+# Binaires : aucune conversion.
+*.mp3 binary
+*.ogg binary
+*.opus binary
+*.wav binary
+*.flac binary
+*.m4a binary
+*.png binary
+*.jpg binary

@@ -1,0 +1,20 @@
+Range tes musiques ici, un sous-dossier par ambiance.
+
+    assets/musique/
+        ambiance/     auberge.mp3, pluie-sur-le-toit.mp3, marche-de-nuit.mp3
+        combat/       poursuite.mp3, duel-au-sabre.mp3
+        rituel/       temple.mp3, invocation.mp3
+        voyage/       route-de-la-soie.mp3
+
+Le nom du sous-dossier devient la categorie : /musique ambiance categorie:combat
+enchaine tout le dossier « combat », melange, en boucle.
+
+Le nom du fichier devient le titre affiche. Les tirets et les tirets bas
+deviennent des espaces : « pluie-sur-le-toit.mp3 » s affiche « pluie sur le toit ».
+
+Formats lus : mp3, ogg, opus, wav, flac, m4a, aac, webm.
+Le plus economique pour un serveur : de l ogg ou de l opus en 96 kbps mono.
+Discord reencode tout en Opus 48 kHz de toute facon — inutile de televerser du FLAC.
+
+Ces fichiers ne sont pas suivis par git (voir .gitignore) : ils sont trop lourds.
+Le README explique comment les faire arriver jusqu au serveur.
