@@ -95,6 +95,12 @@ class Session {
     this.minuterie = null;
     this.ressource = null;
 
+    // Le panneau de /musique s accroche ici : la session previent quand son
+    // etat change de lui-meme (fin de piste, retrait pour inactivite), sinon
+    // l affichage mentirait jusqu au prochain clic.
+    this.panneau = null;
+    this.surChangement = null;
+
     this.connexion = joinVoiceChannel({
       channelId: salonVocal.id,
       guildId: guilde.id,
@@ -149,6 +155,7 @@ class Session {
     if (!piste) {
       this.courante = null;
       this.#armerMinuterie();
+      this.surChangement?.();
       return null;
     }
     this.courante = piste;
@@ -160,6 +167,7 @@ class Session {
     this.ressource.volume?.setVolume(this.volume);
     this.lecteur.play(this.ressource);
     log.info(`[${this.guildeId}] lecture : ${piste.id}`);
+    this.surChangement?.();
     return piste;
   }
 
@@ -232,7 +240,10 @@ class Session {
     this.#annulerMinuterie();
     try { this.lecteur.stop(true); } catch { /* ignore */ }
     try { this.connexion.destroy(); } catch { /* deja detruite */ }
+    this.courante = null;
     sessions.delete(this.guildeId);
+    // Prevenir en dernier : le panneau doit voir une session deja retiree.
+    this.surChangement?.();
   }
 }
 

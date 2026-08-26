@@ -1,11 +1,10 @@
 # 太白金星 — Tàibái Jīnxīng
 
-Bot Discord pour la table de jeu de rôle en Chine mythologique : dés, fiches de
-personnage, oracle du *Yì Jīng*, voix des PNJ, et diffusion des musiques d'ambiance
-depuis des fichiers rangés sur le serveur.
+Bot Discord pour la table de jeu de rôle en Chine mythologique. Deux commandes :
+les dés, et un panneau pour les musiques d'ambiance diffusées depuis des fichiers
+rangés sur le serveur.
 
-Tout est en place et vérifié hors ligne. Il te manque trois choses : une application
-Discord, un jeton, et tes fichiers audio.
+Il te manque trois choses : une application Discord, un jeton, et tes fichiers audio.
 
 ---
 
@@ -20,8 +19,7 @@ Discord, un jeton, et tes fichiers audio.
 3. Onglet **General Information** → copie l'**Application ID**.
 
 **Aucun intent privilégié à activer.** Le bot ne lit pas les messages : il ne
-fonctionne qu'aux commandes `/`. C'est délibéré — moins de permissions, moins de
-surface, et Discord n'a rien à vérifier si un jour tu dépasses cent serveurs.
+fonctionne qu'aux commandes `/` et aux boutons.
 
 ### Configurer
 
@@ -46,6 +44,9 @@ npm run commandes         # déclare les commandes auprès de Discord
 npm start
 ```
 
+L'ordre compte : `npm run commandes` vise ton serveur et échoue si le bot n'y est
+pas encore. `npm run connexion` te le dira avant Discord.
+
 ---
 
 ## 2. Le lien d'invitation
@@ -53,62 +54,76 @@ npm start
 Remplace `TON_APPLICATION_ID` par ton Application ID :
 
 ```
-https://discord.com/api/oauth2/authorize?client_id=TON_APPLICATION_ID&permissions=396134575424&scope=bot%20applications.commands
+https://discord.com/api/oauth2/authorize?client_id=TON_APPLICATION_ID&permissions=274914692096&scope=bot%20applications.commands
 ```
 
-`npm run lien` produit exactement ce lien, avec ton identifiant, plus une variante
-minimale. Le nombre `396134575424` n'est pas saisi à la main : il est calculé par
-discord.js à partir de [`src/lib/permissions.js`](src/lib/permissions.js). Si tu
-retires une permission de cette liste, le lien se recalcule tout seul.
+`npm run lien` produit exactement ce lien, avec ton identifiant. Le nombre
+`274914692096` n'est pas saisi à la main : il est calculé par discord.js à partir
+de [`src/lib/permissions.js`](src/lib/permissions.js).
+
+Huit permissions, et **rien que ce que le code exerce réellement** :
 
 | Permission | Pourquoi |
 |---|---|
 | Voir les salons, Envoyer des messages, Écrire dans les fils | toute réponse |
-| Intégrer des liens, Joindre des fichiers | fiches, oracle, scènes |
-| Lire l'historique, Ajouter des réactions, Émojis externes | confort |
+| Intégrer des liens | le panneau de `/musique` est un encart |
+| Lire l'historique | retrouver le panneau pour le mettre à jour |
 | **Se connecter, Parler, Détection de la voix** | **diffuser la musique** |
-| Voix prioritaire | baisser la musique quand le MJ parle |
-| **Gérer les webhooks** | **faire parler les PNJ sous leur nom et leur portrait** |
-| Gérer les messages | épingler une scène, effacer une erreur |
-| Créer et gérer les fils | un fil par scène, apartés MJ ↔ joueur |
-| Déplacer les membres, Rendre muet | réunir la table, silence rituel |
-| Gérer les pseudos, Gérer les rôles | renommer un joueur, attribuer une secte |
 
-Les quatre dernières lignes sont du confort de maître du jeu. Si tu préfères un bot
-discret, prends le **lien minimal** que `npm run lien` affiche en second : dés,
-oracle et musique, rien d'autre. Tu pourras toujours élargir plus tard en réouvrant
-le lien complet — Discord met à jour les permissions sans réinstaller le bot.
+Ni `Administrator`, ni `Gérer les messages`, ni `Gérer les rôles` : le bot n'en a
+pas besoin, et un jeton qui fuite fait alors beaucoup moins de dégâts.
 
-> Ni `Administrator`, ni `Mentionner @everyone` : le bot n'en a pas besoin, et un
-> jeton qui fuite fait alors beaucoup moins de dégâts.
+`npm run lien` affiche aussi un **lien minimal** (`19456`) sans la voix, si tu veux
+d'abord essayer `/d` en salon texte.
+
+> Piège classique : « Se connecter » et « Parler » se vérifient **sur le salon
+> vocal**, pas seulement sur le serveur. Un bot peut avoir la permission au niveau
+> du serveur et se la voir refuser sur un salon précis.
 
 ---
 
 ## 3. Les commandes
 
-| Commande | Ce qu'elle fait |
+### `/d` — les dés
+
+Un seul argument, insensible à la casse, tolérant aux espaces.
+
+| Tu écris | Tu obtiens |
 |---|---|
-| `/jet des 2d6+3` | notation libre ; `4d6kh3` garde les trois plus hauts, `3d10kl1` le plus bas |
-| `/jet action mouvement:eau difficulte:15` | d20 + le mouvement de ta fiche, avec avantage et verdict |
-| `/perso creer\|voir\|modifier\|souffle\|liste` | fiche bâtie sur les cinq mouvements (五行) |
-| `/oracle consulter` | tirage aux trois pièces, traits mutants et hexagramme d'arrivée |
-| `/oracle hexagramme numero:23` | lire une figure précise |
-| `/pnj nature:immortel` | une figure complète tirée au sort : nom chinois, rôle, trait, secret |
-| `/voix dire qui:… message:…` | le PNJ parle sous son nom et son portrait (webhook) |
-| `/scene texte:… ambiance:tendu` | cartouche de narration, épinglable |
-| `/musique jouer\|ambiance\|volume\|pause\|stop` | diffusion des fichiers locaux |
-| `/aide` | le tout, dans Discord |
+| `/d 6` | `1d6` — un nombre nu vaut un dé de ce nombre de faces |
+| `/d 20` | `1d20` |
+| `/d 3d100` | trois dés de cent |
+| `/d 1D20` | la casse n'a aucune importance |
+| `/d 2d6+3` | modificateurs, additions et soustractions |
+| `/d 4d6kh3` | garde les 3 plus hauts (`kh`), `3d10kl1` garde le plus bas (`kl`) |
 
-Quelques partis pris, que tu peux changer :
+Le détail du tirage est affiché, les dés écartés barrés, les extrêmes en gras.
 
-- **Les cinq mouvements** (bois, feu, terre, métal, eau) servent d'attributs, avec
-  les cycles d'engendrement et de domination. La fiche affiche le palier de
-  cultivation et une réserve de *souffle*.
-- **Les dés** utilisent `crypto.randomBytes` avec rejet des valeurs biaisées, pas
-  `Math.random`. C'est gratuit et ça évite les discussions à la table.
-- **L'oracle** applique la vraie méthode des trois pièces (6/7/8/9) et la table du
-  Roi Wen — vérifiée comme bijection sur les 64 hexagrammes. Les traits mutants
-  donnent l'hexagramme d'arrivée, comme il se doit.
+Le tirage utilise `crypto.randomBytes` avec rejet des valeurs biaisées, pas
+`Math.random`. C'est gratuit et ça évite les discussions à la table. Bornes : 100
+dés au plus, de 2 à 1000 faces.
+
+### `/musique` — le panneau
+
+`/musique` rejoint ton salon vocal et poste **un panneau**. Ensuite, tout se fait
+aux boutons : plus rien à retaper.
+
+| Élément | Effet |
+|---|---|
+| Menu « Une ambiance » | joue tout un dossier, mélangé, en boucle |
+| Menu « Une piste précise » | glisse une piste devant tout le reste |
+| ⏸ / ▶ | suspendre, reprendre |
+| ⏭ | piste suivante |
+| 🔉 / 🔊 | volume par pas de 10 % |
+| 🔁 | boucle : aucune → piste → liste |
+| ⏹ **Arrêter et quitter** | silence, et le bot sort du salon |
+
+Le panneau se met à jour tout seul quand une piste s'enchaîne ou quand le bot se
+retire — pas seulement quand on clique.
+
+Il faut être dans un salon vocal pour ouvrir le panneau. Le bot quitte après cinq
+minutes de silence, et immédiatement si plus personne n'écoute
+(`INACTIVITE_MINUTES` dans `.env`).
 
 ---
 
@@ -123,9 +138,8 @@ assets/musique/
     rituel/     temple.mp3
 ```
 
-Le dossier devient la catégorie, le nom du fichier devient le titre affiché.
-`/musique ambiance categorie:combat` enchaîne tout le dossier, mélangé, en boucle.
-`/musique jouer` propose une autocomplétion qui filtre à la frappe.
+Le dossier devient l'ambiance proposée dans le menu, le nom du fichier devient le
+titre affiché.
 
 Formats lus : mp3, ogg, opus, wav, flac, m4a, aac, webm. **Encode en Opus 96 kbps
 mono** : Discord réencode tout en Opus 48 kHz de toute façon, et tu diviseras la
@@ -135,8 +149,9 @@ taille de ton dossier par cinq sans rien perdre à l'oreille.
 ffmpeg -i source.flac -c:a libopus -b:a 96k -ac 1 assets/musique/ambiance/sortie.ogg
 ```
 
-Le bot quitte le salon vocal après cinq minutes de silence, et immédiatement si
-plus personne n'écoute (`INACTIVITE_MINUTES` dans `.env`).
+> Les menus de Discord plafonnent à 25 entrées. Au-delà de 25 pistes, le menu
+> « Une piste précise » n'en montre que 25 — passe par les ambiances, qui jouent
+> le dossier entier.
 
 ---
 
@@ -150,10 +165,10 @@ certificat. En revanche, celui-ci a deux besoins que n'a pas un bot ordinaire :
 
 1. **Des fichiers audio locaux**, qui doivent se trouver sur la machine.
 2. **Du CPU par intermittence** : encoder un flux Opus coûte quelques pour cent
-   d'un cœur, seulement pendant la lecture. C'est peu, mais ce n'est pas nul.
+   d'un cœur, seulement pendant la lecture.
 
-La base SQLite (fiches, PNJ, journal des jets) tient dans quelques mégaoctets et
-doit survivre aux redéploiements — d'où le volume, plus bas.
+**Il ne stocke rien.** Pas de base de données, donc **aucun volume à monter** : un
+redéploiement ne perd rien, sinon la musique en cours.
 
 ### Sur Railway, avec le Dockerfile fourni
 
@@ -163,10 +178,8 @@ Railway voit le Dockerfile et s'en sert au lieu de Nixpacks.
 1. Pousse le projet sur GitHub.
 2. Railway → **New Project** → **Deploy from GitHub repo**.
 3. **Variables** : `DISCORD_TOKEN`, `DISCORD_APPLICATION_ID`. N'y mets pas
-   `DATA_DIR` ni `MUSIQUE_DIR` : le Dockerfile les fixe déjà.
-4. **Volume** : Settings → Volumes → **New Volume**, point de montage `/data`.
-   Sans lui, les fiches disparaissent au premier redéploiement.
-5. Depuis ta machine, une fois : `npm run commandes` — les commandes se déclarent
+   `MUSIQUE_DIR` : le Dockerfile le fixe déjà.
+4. Depuis ta machine, une fois : `npm run commandes` — les commandes se déclarent
    auprès de Discord, pas auprès de l'hébergeur. Inutile de le refaire à chaque
    déploiement, seulement quand tu ajoutes ou modifies une commande.
 
@@ -179,12 +192,11 @@ une connexion morte.
 
 Railway n'a plus de véritable palier gratuit : le plan d'essai offre un crédit
 unique d'environ 5 $, puis il faut passer au plan **Hobby**, autour de 5 $ par
-mois, crédit d'usage inclus. La facturation est à l'usage : mémoire et CPU
-consommés, à la minute.
+mois, crédit d'usage inclus. La facturation est à l'usage, à la minute.
 
 Pour ce bot, compte de l'ordre de **200 à 300 Mo** de mémoire au repos et un CPU
 quasi nul hors lecture — soit, à vue de nez, **3 à 4 $ par mois**, donc à
-l'intérieur du crédit inclus dans le plan Hobby. Ton autre bot consomme en plus.
+l'intérieur du crédit inclus dans le plan Hobby.
 
 > Les tarifs cités sont ceux que j'ai en tête et je n'ai pas pu les vérifier
 > depuis cette machine. Regarde <https://railway.com/pricing> avant de t'engager :
@@ -194,37 +206,23 @@ l'intérieur du crédit inclus dans le plan Hobby. Ton autre bot consomme en plu
 
 | Solution | Prix | Ce que ça vaut ici |
 |---|---|---|
-| **Railway Hobby** | ~5 $/mois | tu y es déjà, déploiement par `git push`, volume simple. Le plus court chemin. |
+| **Railway Hobby** | ~5 $/mois | tu y es déjà, déploiement par `git push`. Le plus court chemin. |
 | **VPS chez Hetzner** (CX22 ou équivalent) | ~4 €/mois | **le meilleur rapport pour ce bot précis** : tu déposes tes musiques en `scp`, 40 Go de disque, aucune limite d'usage. Il faut savoir tenir un serveur à jour. |
-| **Oracle Cloud Always Free** (ARM) | 0 € | réellement gratuit et généreux (ARM, plusieurs Go de RAM). Deux réserves : la disponibilité des instances ARM est capricieuse, et Oracle supprime les comptes inactifs sans beaucoup d'égards. |
+| **Oracle Cloud Always Free** (ARM) | 0 € | réellement gratuit et généreux. Deux réserves : la disponibilité des instances ARM est capricieuse, et Oracle supprime les comptes inactifs sans beaucoup d'égards. |
 | **Un Raspberry Pi chez toi** | électricité | idéal pour des fichiers audio lourds. À la merci de ta connexion et de tes coupures de courant. |
 | Fly.io, Render | variable | possible, mais leurs paliers gratuits mettent les services en veille — inacceptable pour un bot vocal. |
 
-Mon conseil : **reste sur Railway** tant que ton dossier de musiques tient dans
-l'image (disons moins de 500 Mo). Au-delà, un VPS à 4 € devient plus simple *et*
-moins cher, parce que tu cesses de payer pour transporter des fichiers audio à
-chaque déploiement.
-
 ### Faire arriver les musiques sur le serveur
 
-C'est le seul vrai point de friction. Trois façons, par ordre de simplicité :
+C'est le seul vrai point de friction. Le `Dockerfile` fait `COPY assets ./assets` :
+il faut donc que les fichiers soient dans le dépôt git, ce que `.gitignore` empêche
+aujourd'hui. Pour l'autoriser, retire les lignes `assets/musique/**/*` du
+`.gitignore` — convient jusqu'à quelques centaines de mégaoctets, avec Git LFS de
+préférence.
 
-**a. Dans l'image Docker** (ce que fait le `Dockerfile` : `COPY assets ./assets`).
-Il faut alors que les fichiers soient dans le dépôt git. Simple, mais `.gitignore`
-les exclut aujourd'hui, et git supporte mal les gros binaires. Convient jusqu'à
-quelques centaines de mégaoctets, avec Git LFS de préférence. Pour l'activer,
-retire la ligne `assets/musique/**` de `.gitignore`.
-
-**b. Sur le volume Railway.** Monte le volume sur `/data`, mets
-`MUSIQUE_DIR=/data/musique` dans les variables, et pousse les fichiers avec la CLI
-Railway. Les musiques cessent d'alourdir chaque déploiement.
-
-**c. Depuis un stockage objet** (Cloudflare R2, Backblaze B2 — quelques centimes
-par mois) : une synchronisation au démarrage vers le volume. C'est la solution
-propre si la bibliothèque grossit, mais c'est du travail en plus. On la garde pour
-le jour où elle sera nécessaire.
-
-Sur un VPS, la question ne se pose pas : `scp -r assets/musique serveur:/opt/taibai/assets/`.
+Au-delà, un VPS devient plus simple *et* moins cher, parce que tu cesses de payer
+pour transporter des fichiers audio à chaque déploiement :
+`scp -r assets/musique serveur:/opt/taibai/assets/`.
 
 ---
 
@@ -237,7 +235,7 @@ Sur un VPS, la question ne se pose pas : `scp -r assets/musique serveur:/opt/tai
 | Une commande a changé de forme | rejoue `npm run commandes` : Discord ne devine rien. |
 | Tout retirer | `npm run commandes:purge` |
 | Le bot ne parle pas dans le salon vocal | vérifie « Se connecter » et « Parler » **sur le salon**, pas seulement sur le serveur |
-| « Il me manque Gérer les webhooks » | permission de salon, à donner sur le salon concerné |
+| Un bouton ne répond plus | le panneau d'une session terminée est inerte : relance `/musique` |
 | Vérifier la chaîne audio | `npm run verif` — liste l'encodeur Opus, le chiffrement et ffmpeg |
 | Voir ce qui se passe | `LOG_LEVEL=debug` dans `.env` |
 
@@ -245,16 +243,11 @@ Sur un VPS, la question ne se pose pas : `scp -r assets/musique serveur:/opt/tai
 
 ## 7. Ce qui n'est pas encore là
 
-Rien de tout cela ne manque pour jouer, mais l'ossature est prête à les recevoir :
-
 - **Reprise de la lecture après un redéploiement** : aujourd'hui, un redéploiement
-  coupe la musique. On pourrait mémoriser le salon et la piste dans la base.
-- **Import de tes exports Discord** : `DISCORD.md` décrit la récupération de
-  l'historique. Une commande `/note` qui verse dans la même base ferait le lien
-  entre le bot et tes fiches existantes.
+  coupe la musique. Il faudrait mémoriser le salon et la piste quelque part.
 - **Fondu enchaîné** entre deux ambiances. Faisable, mais il faut deux lecteurs et
   un mélange — plus de code qu'il n'y paraît.
-- **Initiative et combat** : rien n'est fait, faute de connaître ton système.
+- **Plus de 25 pistes au menu** : il faudrait paginer, ou un champ de recherche.
 
 ---
 
@@ -262,22 +255,23 @@ Rien de tout cela ne manque pour jouer, mais l'ossature est prête à les recevo
 
 ```
 src/
-    index.js              client, évènements, arrêt propre
+    index.js              client, évènements, aiguillage des clics, arrêt propre
     config.js             lecture de .env, seul endroit qui lit process.env
     deploy-commands.js    déclaration des commandes
     invite.js             construction du lien d'invitation
     connexion.js          jeton, application, invitation : un aller-retour
     verif.js              diagnostic hors ligne
-    commands/             une commande par fichier, chargées automatiquement
+    commands/
+        d.js              les dés
+        musique.js        le panneau et ses boutons
     lib/
         des.js            analyse et lancer, tirage non biaisé
         musique.js        bibliothèque, file d'attente, session vocale par serveur
-        db.js             SQLite via node:sqlite — aucune dépendance à compiler
+        couleurs.js       la palette
         permissions.js    la liste qui produit le lien d'invitation
-    data/
-        hexagrammes.js    les 64 figures, la table du Roi Wen
-        noms.js           noms, rôles, traits et secrets
 ```
 
 Ajouter une commande : un fichier dans `src/commands/` qui exporte `{ data, execute }`,
-puis `npm run commandes`. Le chargeur le trouve tout seul.
+puis `npm run commandes`. Le chargeur le trouve tout seul. Pour des boutons, exporte
+en plus `composant` et préfixe leurs identifiants du nom de la commande
+(`macommande:action`) — `index.js` aiguille dessus tout seul.

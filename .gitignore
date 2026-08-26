@@ -7,11 +7,6 @@
 node_modules/
 npm-debug.log*
 
-# Base de donnees locale
-data/
-*.db
-*.db-wal
-*.db-shm
 
 # Fichiers audio : trop lourds pour git. Voir README, section 5, pour les
 # faire arriver jusqu au serveur. On exclut par extension, et non le dossier

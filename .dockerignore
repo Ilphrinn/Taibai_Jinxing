@@ -3,7 +3,6 @@ npm-debug.log
 .env
 .env.*
 !.env.exemple
-data
 .git
 .gitignore
 *.md

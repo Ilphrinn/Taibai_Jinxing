@@ -77,17 +77,3 @@ export function evaluer(expression) {
   return { total, detail: parties.join(' ').replace(/^\+/, ''), jets, expression: brut };
 }
 
-/** Jet de reference du systeme : d20 + attribut + bonus. */
-export function jetDAction({ attribut = 0, bonus = 0, avantage = 'aucun' } = {}) {
-  const a = dLance(20);
-  const b = avantage === 'aucun' ? null : dLance(20);
-  const des = b === null ? [a] : [a, b];
-  const brut = b === null ? a : (avantage === 'avantage' ? Math.max(a, b) : Math.min(a, b));
-  return {
-    des,
-    brut,
-    total: brut + attribut + bonus,
-    critique: brut === 20,
-    echecCritique: brut === 1,
-  };
-}

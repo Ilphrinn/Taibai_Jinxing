@@ -6,7 +6,6 @@ import { config } from './config.js';
 import { log } from './logger.js';
 import { chargerCommandes } from './lib/chargeur.js';
 import { toutQuitter, surChangementVocal, bibliotheque } from './lib/musique.js';
-import { fermerBase } from './lib/db.js';
 
 // Le chiffrement vocal doit etre pret avant toute connexion audio.
 // L entree ESM de libsodium-wrappers est cassee en amont : son
@@ -43,21 +42,27 @@ client.on(Events.VoiceStateUpdate, (ancien, nouveau) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  const commande = client.commandes.get(interaction.commandName);
+  // Un composant porte son aiguillage dans son identifiant : « musique:stop »
+  // designe la commande « musique ». Aucune table a tenir a jour en plus.
+  const estComposant = interaction.isButton() || interaction.isAnySelectMenu();
+  const nom = estComposant ? interaction.customId.split(':')[0] : interaction.commandName;
+
+  const commande = client.commandes.get(nom);
   if (!commande) return;
 
   if (interaction.isAutocomplete()) {
     try { await commande.autocomplete?.(interaction); }
-    catch (err) { log.error(`Autocompletion ${interaction.commandName} :`, err.message); }
+    catch (err) { log.error(`Autocompletion ${nom} :`, err.message); }
     return;
   }
 
-  if (!interaction.isChatInputCommand()) return;
+  if (!estComposant && !interaction.isChatInputCommand()) return;
 
   try {
-    await commande.execute(interaction);
+    if (estComposant) await commande.composant?.(interaction);
+    else await commande.execute(interaction);
   } catch (err) {
-    log.error(`Commande /${interaction.commandName} :`, err);
+    log.error(`${estComposant ? 'Composant' : 'Commande'} ${nom} :`, err);
     const message = {
       content: `⚠️ ${err.message ?? 'Quelque chose a echoue.'}`,
       flags: MessageFlags.Ephemeral,
@@ -84,7 +89,6 @@ function arreter(signal, code = 0) {
   arretEnCours = true;
   log.info(`Arret (${signal})...`);
   toutQuitter();
-  fermerBase();
   client.destroy().finally(() => process.exit(code));
   setTimeout(() => process.exit(code), 5_000).unref();
 }

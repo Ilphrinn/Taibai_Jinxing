@@ -1,252 +1,206 @@
+// Une seule commande : /musique ouvre un panneau, et tout le reste passe par
+// ses boutons et ses menus. Les identifiants de composants sont prefixes du nom
+// de la commande (« musique:… ») : c est ce qui permet a index.js d aiguiller
+// un clic vers ce fichier sans table de correspondance supplementaire.
 import {
-  SlashCommandBuilder, EmbedBuilder, InteractionContextType, MessageFlags,
+  SlashCommandBuilder, InteractionContextType,
+  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  StringSelectMenuBuilder,
 } from 'discord.js';
 import { AudioPlayerStatus } from '@discordjs/voice';
-import {
-  rejoindre, session, bibliotheque, rechercher, categories, MODES_BOUCLE,
-} from '../lib/musique.js';
+import { rejoindre, session, bibliotheque, categories, MODES_BOUCLE } from '../lib/musique.js';
 import { COULEURS } from '../lib/couleurs.js';
 import { config } from '../config.js';
+import { log } from '../logger.js';
 
 export const data = new SlashCommandBuilder()
   .setName('musique')
-  .setDescription('Ambiances sonores de la table')
-  .setContexts(InteractionContextType.Guild)
-  .addSubcommand((s) => s
-    .setName('jouer')
-    .setDescription('Jouer une piste de la bibliotheque locale')
-    .addStringOption((o) => o
-      .setName('piste')
-      .setDescription('Commence a taper : la liste se filtre')
-      .setRequired(true)
-      .setAutocomplete(true))
-    .addBooleanOption((o) => o
-      .setName('maintenant')
-      .setDescription('Couper la piste en cours au lieu de faire la queue')))
-  .addSubcommand((s) => s
-    .setName('ambiance')
-    .setDescription('Enchainer tout un dossier, en boucle')
-    .addStringOption((o) => o
-      .setName('categorie')
-      .setDescription('Un sous-dossier de la bibliotheque')
-      .setRequired(true)
-      .setAutocomplete(true))
-    .addBooleanOption((o) => o
-      .setName('melanger')
-      .setDescription('Ordre aleatoire (par defaut : oui)')))
-  .addSubcommand((s) => s.setName('file').setDescription('Ce qui joue et ce qui suit'))
-  .addSubcommand((s) => s.setName('pause').setDescription('Suspendre'))
-  .addSubcommand((s) => s.setName('reprendre').setDescription('Reprendre'))
-  .addSubcommand((s) => s.setName('suivant').setDescription('Passer a la piste suivante'))
-  .addSubcommand((s) => s.setName('stop').setDescription('Tout arreter et quitter le salon'))
-  .addSubcommand((s) => s.setName('melanger').setDescription('Rebattre la file'))
-  .addSubcommand((s) => s
-    .setName('volume')
-    .setDescription('Regler le volume')
-    .addIntegerOption((o) => o
-      .setName('pourcentage')
-      .setDescription('De 0 a 200 (100 = volume du fichier)')
-      .setRequired(true)
-      .setMinValue(0).setMaxValue(200)))
-  .addSubcommand((s) => s
-    .setName('boucle')
-    .setDescription('Mode de repetition')
-    .addStringOption((o) => o
-      .setName('mode')
-      .setDescription('aucune, piste, ou liste')
-      .setRequired(true)
-      .addChoices(
-        { name: 'aucune — jouer puis se taire', value: 'aucune' },
-        { name: 'piste — repeter la piste en cours', value: 'piste' },
-        { name: 'liste — repeter toute la file', value: 'liste' },
-      )))
-  .addSubcommand((s) => s
-    .setName('bibliotheque')
-    .setDescription('Lister les fichiers disponibles')
-    .addStringOption((o) => o
-      .setName('categorie')
-      .setDescription('Se limiter a un dossier')
-      .setAutocomplete(true)));
+  .setDescription('Ouvrir le panneau des ambiances sonores')
+  .setContexts(InteractionContextType.Guild);
 
-export async function autocomplete(interaction) {
-  const focus = interaction.options.getFocused(true);
-  const saisie = focus.value ?? '';
+const PAS_VOLUME = 0.1;
+const pourcent = (v) => `${Math.round(v * 100)} %`;
 
-  if (focus.name === 'categorie') {
-    const cats = categories().filter((c) => c.toLowerCase().includes(saisie.toLowerCase()));
-    return interaction.respond(cats.slice(0, 25).map((c) => ({ name: c, value: c })));
+const DIT_BOUCLE = { aucune: 'Aucune', piste: 'Piste', liste: 'Liste' };
+
+// --- Rendu ---------------------------------------------------------------
+
+/** Construit le panneau a partir de l etat courant. `s` peut etre null. */
+function rendu(s) {
+  const pistes = bibliotheque();
+  const joue = Boolean(s?.courante);
+  const enPause = s?.statut === AudioPlayerStatus.Paused;
+
+  const embed = new EmbedBuilder()
+    .setColor(joue ? (enPause ? COULEURS.or : COULEURS.jade) : COULEURS.encre)
+    .setTitle('太白金星 — Ambiances');
+
+  if (!pistes.length) {
+    embed.setDescription(
+      `Aucun fichier dans \`${config.dossierMusique}\`.\n\n` +
+      'Dépose des `.mp3` ou des `.ogg` dans des sous-dossiers : ' +
+      'un dossier vaut une ambiance, le nom du fichier devient le titre.'
+    );
+    return { embeds: [embed], components: [] };
   }
 
-  const pistes = rechercher(saisie, { limite: 25 });
-  return interaction.respond(pistes.map((p) => ({
-    name: `${p.categorie} · ${p.titre}`.slice(0, 100),
-    value: p.id.slice(0, 100),
-  })));
+  embed.setDescription(joue
+    ? `${enPause ? '⏸' : '▶'} **${s.courante.titre}**\n*${s.courante.categorie}*`
+    : '*Rien en cours.*');
+
+  embed.addFields(
+    { name: 'Volume', value: pourcent(s?.volume ?? config.volumeDefaut), inline: true },
+    { name: 'Boucle', value: DIT_BOUCLE[s?.boucle ?? 'aucune'], inline: true },
+    { name: 'En file', value: String(s?.file.length ?? 0), inline: true },
+  );
+
+  if (s?.file.length) {
+    embed.addFields({
+      name: 'À suivre',
+      value: s.file.slice(0, 5).map((p, i) => `${i + 1}. ${p.titre}`).join('\n')
+        + (s.file.length > 5 ? `\n… et ${s.file.length - 5} autres` : ''),
+    });
+  }
+
+  // Discord plafonne un menu a 25 entrees.
+  const cats = categories().slice(0, 25);
+  const vingtCinq = pistes.slice(0, 25);
+  if (pistes.length > 25) {
+    embed.setFooter({ text: `${pistes.length} pistes — le menu n en montre que 25. Passe par les ambiances.` });
+  }
+
+  const menuAmbiance = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('musique:categorie')
+      .setPlaceholder('Une ambiance — tout le dossier, mélangé, en boucle')
+      .addOptions(cats.map((c) => ({ label: c.slice(0, 100), value: c.slice(0, 100) }))));
+
+  const menuPiste = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('musique:piste')
+      .setPlaceholder('Une piste précise')
+      .addOptions(vingtCinq.map((p) => ({
+        label: p.titre.slice(0, 100),
+        description: p.categorie.slice(0, 100),
+        value: p.id.slice(0, 100),
+      }))));
+
+  const bouton = (id, emoji, style = ButtonStyle.Secondary) =>
+    new ButtonBuilder().setCustomId(`musique:${id}`).setEmoji(emoji).setStyle(style).setDisabled(!s);
+
+  const transport = new ActionRowBuilder().addComponents(
+    bouton('lecture', enPause ? '▶️' : '⏸️', joue ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    bouton('suivant', '⏭️'),
+    bouton('volume-', '🔉'),
+    bouton('volume+', '🔊'),
+    bouton('boucle', '🔁'),
+  );
+
+  const arret = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('musique:stop')
+      .setLabel('Arrêter et quitter')
+      .setEmoji('⏹️')
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(!s));
+
+  return { embeds: [embed], components: [menuAmbiance, menuPiste, transport, arret] };
 }
 
-/** Toutes les sous-commandes hors « jouer » exigent une session en cours. */
-function sessionRequise(interaction) {
-  const s = session(interaction.guildId);
-  if (!s) throw new Error('Je ne joue rien pour le moment.');
+/** Le panneau se remet a jour quand la session change d elle-meme. */
+function accrocher(s) {
+  if (s.surChangement) return s;
+  s.surChangement = () => {
+    if (!s.panneau) return;
+    s.panneau.edit(rendu(session(s.guildeId)))
+      .catch((err) => { log.debug(`Panneau perdu : ${err.message}`); s.panneau = null; });
+  };
   return s;
 }
 
-const enPourcentage = (v) => `${Math.round(v * 100)} %`;
+// --- Commande ------------------------------------------------------------
 
 export async function execute(interaction) {
-  const sous = interaction.options.getSubcommand();
-
-  // --- Lecture seule : pas besoin du salon vocal ---
-  if (sous === 'bibliotheque') {
-    const categorie = interaction.options.getString('categorie');
-    const pistes = bibliotheque({ forcer: true })
-      .filter((p) => !categorie || p.categorie === categorie);
-
-    if (!pistes.length) {
-      return interaction.reply({
-        content: `Aucun fichier dans \`${config.dossierMusique}\`${categorie ? ` (categorie ${categorie})` : ''}.\n` +
-                 'Depose des .mp3 ou .ogg dans des sous-dossiers, un par ambiance.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const parCategorie = new Map();
-    for (const p of pistes) {
-      if (!parCategorie.has(p.categorie)) parCategorie.set(p.categorie, []);
-      parCategorie.get(p.categorie).push(p.titre);
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(COULEURS.encre)
-      .setTitle('Bibliotheque sonore')
-      .setFooter({ text: `${pistes.length} pistes · ${parCategorie.size} categories` });
-
-    for (const [cat, titres] of [...parCategorie].slice(0, 25)) {
-      const liste = titres.slice(0, 15).map((t) => `· ${t}`).join('\n');
-      const reste = titres.length > 15 ? `\n… et ${titres.length - 15} autres` : '';
-      embed.addFields({ name: `${cat} (${titres.length})`, value: (liste + reste).slice(0, 1024) });
-    }
-    return interaction.reply({ embeds: [embed] });
-  }
-
-  if (sous === 'file') {
-    const s = sessionRequise(interaction);
-    const embed = new EmbedBuilder()
-      .setColor(COULEURS.encre)
-      .setTitle(s.statut === AudioPlayerStatus.Paused ? 'En pause' : 'En cours')
-      .setDescription(s.courante
-        ? `**${s.courante.titre}**\n*${s.courante.categorie}*`
-        : 'Rien pour le moment.')
-      .addFields(
-        { name: 'Volume', value: enPourcentage(s.volume), inline: true },
-        { name: 'Boucle', value: s.boucle, inline: true },
-        { name: 'En file', value: String(s.file.length), inline: true },
-      );
-
-    if (s.file.length) {
-      embed.addFields({
-        name: 'A suivre',
-        value: s.file.slice(0, 10).map((p, i) => `${i + 1}. ${p.titre}`).join('\n')
-          + (s.file.length > 10 ? `\n… et ${s.file.length - 10} autres` : ''),
-      });
-    }
-    return interaction.reply({ embeds: [embed] });
-  }
-
-  // --- Actions sur une session existante ---
-  if (sous === 'pause') {
-    const s = sessionRequise(interaction);
-    return interaction.reply(s.pause() ? '⏸ Suspendu.' : 'Rien a suspendre.');
-  }
-  if (sous === 'reprendre') {
-    const s = sessionRequise(interaction);
-    return interaction.reply(s.reprendre() ? '▶ On reprend.' : 'Rien en pause.');
-  }
-  if (sous === 'suivant') {
-    const s = sessionRequise(interaction);
-    const titre = s.courante?.titre;
-    s.suivant();
-    return interaction.reply(`⏭ ${titre ? `« ${titre} » ecartee.` : 'Piste suivante.'}`);
-  }
-  if (sous === 'stop') {
-    const s = sessionRequise(interaction);
-    s.stop();
-    s.detruire();
-    return interaction.reply('⏹ Silence. Je quitte le salon.');
-  }
-  if (sous === 'melanger') {
-    const s = sessionRequise(interaction);
-    return interaction.reply(`🔀 File rebattue (${s.melanger()} pistes).`);
-  }
-  if (sous === 'volume') {
-    const s = sessionRequise(interaction);
-    const v = s.definirVolume(interaction.options.getInteger('pourcentage', true) / 100);
-    return interaction.reply(`🔊 Volume : ${enPourcentage(v)}`);
-  }
-  if (sous === 'boucle') {
-    const s = sessionRequise(interaction);
-    const mode = interaction.options.getString('mode', true);
-    if (!MODES_BOUCLE.includes(mode)) throw new Error(`Mode inconnu : ${mode}`);
-    s.boucle = mode;
-    const dit = { aucune: 'Plus de repetition.', piste: 'La piste tournera en rond.', liste: 'La file tournera en rond.' };
-    return interaction.reply(`🔁 ${dit[mode]}`);
-  }
-
-  // --- Mise en lecture : connexion vocale requise ---
+  // Rejoindre un salon vocal peut demander plusieurs secondes ; Discord n en
+  // accorde que trois pour repondre. On accuse reception avant d essayer.
   await interaction.deferReply();
-
-  const membre = interaction.member;
-  const s = await rejoindre(membre, interaction.channel);
-
-  if (sous === 'jouer') {
-    const requete = interaction.options.getString('piste', true);
-    const trouvees = rechercher(requete, { limite: 1 });
-    if (!trouvees.length) throw new Error(`Rien qui ressemble a « ${requete} » dans la bibliotheque.`);
-
-    const piste = trouvees[0];
-    const maintenant = interaction.options.getBoolean('maintenant') ?? false;
-
-    if (maintenant) {
-      s.file.unshift(piste);
-      if (s.courante) s.suivant();
-      else await s.demarrer();
-    } else {
-      s.ajouter([piste]);
-      await s.demarrer();
-    }
-
-    const enAttente = s.courante?.id !== piste.id && !maintenant;
-    return interaction.editReply({
-      embeds: [new EmbedBuilder()
-        .setColor(COULEURS.jade)
-        .setTitle(enAttente ? '➕ En file' : '🎵 Lecture')
-        .setDescription(`**${piste.titre}**\n*${piste.categorie}*`)
-        .setFooter({ text: enAttente ? `Position ${s.file.length} dans la file` : `Volume ${enPourcentage(s.volume)}` })],
-    });
-  }
-
-  if (sous === 'ambiance') {
-    const categorie = interaction.options.getString('categorie', true);
-    const pistes = bibliotheque({ forcer: true }).filter((p) => p.categorie === categorie);
-    if (!pistes.length) throw new Error(`Le dossier « ${categorie} » est vide ou inconnu.`);
-
-    s.vider();
-    s.ajouter(pistes);
-    if ((interaction.options.getBoolean('melanger') ?? true)) s.melanger();
-    s.boucle = 'liste';
-    if (s.courante) s.suivant();
-    else await s.demarrer();
-
-    return interaction.editReply({
-      embeds: [new EmbedBuilder()
-        .setColor(COULEURS.jade)
-        .setTitle(`🎐 Ambiance : ${categorie}`)
-        .setDescription(`${pistes.length} pistes, en boucle.`)
-        .setFooter({ text: `Volume ${enPourcentage(s.volume)} · /musique stop pour finir` })],
-    });
-  }
-
-  throw new Error(`Sous-commande inconnue : ${sous}`);
+  const s = accrocher(await rejoindre(interaction.member, interaction.channel));
+  await interaction.editReply(rendu(s));
+  s.panneau = await interaction.fetchReply();
 }
 
-export default { data, execute, autocomplete };
+// --- Clics et menus ------------------------------------------------------
+
+export async function composant(interaction) {
+  const action = interaction.customId.split(':')[1];
+
+  // Meme raison que dans execute() : un clic qui declenche une connexion vocale
+  // depasserait les trois secondes accordees. deferUpdate garde le panneau tel
+  // quel a l ecran pendant qu on travaille.
+  await interaction.deferUpdate();
+
+  let s = session(interaction.guildId);
+
+  // Pendant qu on traite le clic, on coupe le rafraichissement automatique :
+  // c est la reponse a l interaction qui fera l affichage, une seule fois.
+  if (s) s.panneau = null;
+
+  if (action === 'categorie' || action === 'piste') {
+    s = accrocher(await rejoindre(interaction.member, interaction.channel));
+    s.panneau = null;
+  } else if (!s) {
+    throw new Error('Je ne joue rien pour le moment. Relance `/musique`.');
+  }
+
+  switch (action) {
+    case 'categorie': {
+      const categorie = interaction.values[0];
+      const pistes = bibliotheque({ forcer: true }).filter((p) => p.categorie === categorie);
+      if (!pistes.length) throw new Error(`Le dossier « ${categorie} » est vide ou inconnu.`);
+      s.vider();
+      s.ajouter(pistes);
+      s.melanger();
+      s.boucle = 'liste';
+      if (s.courante) s.suivant(); else await s.demarrer();
+      break;
+    }
+    case 'piste': {
+      const piste = bibliotheque({ forcer: true }).find((p) => p.id === interaction.values[0]);
+      if (!piste) throw new Error('Cette piste a disparu de la bibliothèque.');
+      s.file.unshift(piste);
+      if (s.courante) s.suivant(); else await s.demarrer();
+      break;
+    }
+    case 'lecture':
+      if (s.statut === AudioPlayerStatus.Paused) s.reprendre();
+      else s.pause();
+      break;
+    case 'suivant':
+      s.suivant();
+      break;
+    case 'volume-':
+      s.definirVolume(s.volume - PAS_VOLUME);
+      break;
+    case 'volume+':
+      s.definirVolume(s.volume + PAS_VOLUME);
+      break;
+    case 'boucle':
+      s.boucle = MODES_BOUCLE[(MODES_BOUCLE.indexOf(s.boucle) + 1) % MODES_BOUCLE.length];
+      break;
+    case 'stop':
+      s.stop();
+      s.detruire();
+      break;
+    default:
+      throw new Error(`Action inconnue : ${action}`);
+  }
+
+  await interaction.editReply(rendu(session(interaction.guildId)));
+
+  // On raccroche le panneau : la piste demandee ne demarre qu au prochain tour
+  // de boucle d evenements, et c est le rafraichissement qui l affichera.
+  const vivante = session(interaction.guildId);
+  if (vivante) vivante.panneau = interaction.message;
+}
+
+export default { data, execute, composant };

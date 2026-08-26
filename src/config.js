@@ -25,8 +25,7 @@ export const config = {
   // Vide => deploiement global (jusqu'a 1 h de propagation).
   guildeId: (process.env.DISCORD_GUILD_ID || '').trim() || null,
 
-  // Dossiers. Sur Railway, DATA_DIR pointe vers le volume monte.
-  dossierDonnees: path.resolve(RACINE, process.env.DATA_DIR || './data'),
+  // Ou sont rangees les musiques.
   dossierMusique: path.resolve(RACINE, process.env.MUSIQUE_DIR || './assets/musique'),
 
   // Reglages du lecteur audio.

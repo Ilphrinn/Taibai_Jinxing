@@ -26,7 +26,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV NODE_ENV=production \
     FFMPEG_PATH=/usr/bin/ffmpeg \
-    DATA_DIR=/data \
     MUSIQUE_DIR=/app/assets/musique
 
 WORKDIR /app
@@ -35,8 +34,8 @@ COPY package.json ./
 COPY src ./src
 COPY assets ./assets
 
-# Le volume Railway est monte sur /data : la base y survit aux redeploiements.
-RUN mkdir -p /data && chown -R node:node /data /app
+# Le conteneur ne stocke rien : aucun volume a monter.
+RUN chown -R node:node /app
 USER node
 
 # tini transmet SIGTERM proprement : le bot quitte les salons vocaux avant de mourir.

@@ -27,6 +27,6 @@ for (const [, libelle, raison] of PERMISSIONS) {
 console.log(`\n  Total (bitfield) : ${bitfield()}`);
 console.log('\n  ── Lien complet ' + '─'.repeat(50));
 console.log(`\n  ${lienInvitation(id)}\n`);
-console.log('  ── Lien minimal (des + oracle + musique, sans outils de MJ) ' + '─'.repeat(6));
+console.log('  ── Lien minimal (sans la voix : /d seul) ' + '─'.repeat(24));
 console.log(`\n  ${lienInvitation(id, MINIMALES)}\n`);
 console.log('  Ouvre le lien, choisis ton serveur, autorise. Il faut y etre administrateur.\n');
