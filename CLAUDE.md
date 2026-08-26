@@ -23,6 +23,17 @@ liste — tout se tient.
 Lancé avec un jeton bidon, `src/index.js` va jusqu'à `TokenInvalid` — ce qui prouve
 tout le chemin de démarrage sauf la connexion elle-même.
 
+**Deuxième passe du 26 août au soir**, après qu'il m'a demandé ce que je voyais
+d'autre d'utile. Trois chantiers, tous vérifiés par `verif` : les défauts du
+panneau (ouverture sans vocal, replacement quand il est enterré, mot laissé avant
+un redéploiement, lecture réservée au maître), le son (fondu séquentiel et
+égalisation du volume par `volumedetect`), et l'acheminement des fichiers audio.
+`verif` a une section **Son** de plus : durée, niveau mesuré, gain retenu et rampe
+de fondu. Exercé sur `cloche-longue.ogg` : 45 s, moyen −21,1 dB, crête −17,9 dB,
+gain ×1,14.
+
+Écarté ce soir-là, sur sa réponse : le jet caché du meneur.
+
 **Jamais exécuté :** le bot **ne s'est toujours jamais connecté à Discord**. Il a été
 déployé sur Railway le 26 août et y a tourné en boucle d'échec (voir les pièges
 ci-dessous). Il n'y a ni `.env` local, ni fichier audio dans `assets/musique/` —
@@ -92,11 +103,50 @@ la ligne de code qui s'en sert.
 son export `composant`. Aucune table de correspondance à tenir à jour : une commande
 qui veut des boutons exporte `composant` et préfixe ses `custom_id`, c'est tout.
 
-**Le panneau de `/musique` a un point d'accroche dans la session.** `Session` expose
-`panneau` et `surChangement` ; la commande y branche un rafraîchissement. Sans ça,
-le panneau mentirait dès qu'une piste s'enchaîne toute seule. Pendant le traitement
-d'un clic, on met `panneau` à `null` pour que l'affichage soit fait une seule fois,
-par la réponse à l'interaction — puis on raccroche.
+**Le panneau ne vit pas dans la session, et c'est délibéré.** `Session` n'expose
+plus que `surChangement` : le point d'accroche, sans quoi le panneau mentirait dès
+qu'une piste s'enchaîne toute seule. Le message lui-même est dans une `Map` de
+module de `commands/musique.js` (`guildeId → { message, maitre }`), même patron que
+`navigation.js`. Deux raisons mesurées : on doit pouvoir **ouvrir le panneau sans
+être en vocal**, donc sans session ; et la session est détruite dès que le salon se
+vide, ce qui laissait un panneau à l'écran que plus rien ne pouvait rafraîchir.
+Pendant le traitement d'un clic, le `guildeId` entre dans le `Set` `muets` pour que
+l'affichage soit fait une seule fois, par la réponse à l'interaction.
+
+**`/musique` n'exige pas le salon vocal.** `execute()` appelait `rejoindre()`
+d'emblée : la propriété « feuilleter sans être en vocal », écrite noir sur blanc
+dans `panneau.js` et dans le tri des actions de `composant()`, n'était atteignable
+par aucun chemin. Le bot ne vient que si le membre est déjà en vocal ; sinon le
+panneau se pose avec `s = null`, ce que `rendu()` sait dessiner depuis toujours.
+
+**Le panneau se replace quand il est enterré.** `/musique` répondait « déjà
+ouvert : *url* », ce qui laissait le panneau trois cents messages plus haut après
+deux heures de séance. On regarde maintenant s'il est encore le dernier message du
+salon (`messages.fetch({ limit: 1 })`) : oui, on l'édite ; non, on en poste un neuf
+et on efface l'ancien. **Un bot supprime ses propres messages sans « Gérer les
+messages »** — vérifié avant d'écrire la ligne, la liste des huit permissions ne
+bouge pas. La vue de navigation n'est remise à zéro que s'il n'y avait aucun
+panneau : un replacement ne doit pas faire perdre la page où l'on en était.
+
+**La lecture appartient au maître du panneau.** Choix d'Ilphrinn le 26 août : celui
+qui lance `/musique` est le seul à commander jouer, pause, volume, boucle, arrêt.
+La navigation (`lieu`, `majeure`, `page±`) reste ouverte à tous — c'est la même
+liste que celle des actions qui n'exigent pas de session, et pour la même raison :
+regarder ne touche à rien. Reprise possible seulement si le maître a quitté le
+salon vocal du bot, sinon sa déconnexion bloquerait la musique jusqu'au
+redémarrage. Un panneau laissé par un lancement précédent du bot n'a plus de
+maître connu : il n'appartient à personne, et la première `/musique` le reprend.
+
+**Une commande peut exporter `arret()`.** Nouvelle convention de chargement, dans
+l'esprit des autres (`composant`, `autocomplete`) : aucune table à tenir.
+`index.js` appelle `arret()` sur toutes les commandes avant de mourir, après
+`toutQuitter()` — quitter le vocal est plus urgent que d'écrire un message.
+`musique.arret()` remplace le panneau par « je redémarre », sans boutons : sinon un
+redéploiement laissait un panneau figé sur « ▶️ En lecture » dont les boutons
+répondaient « Je ne joue rien », ce qui fait chercher une panne là où il n'y a
+qu'un déploiement. **Un `SIGKILL` laisse le fantôme** — on ne peut rien y faire
+sans persistance, et il n'y a pas de base. C'est écrit dans le README plutôt que
+caché.
 
 **Le panneau est un message de salon, pas une réponse d'interaction.** C'était
 `interaction.fetchReply()` ; ce message appartient au jeton de l'interaction, qui
@@ -164,6 +214,49 @@ Cache par `chemin + mtime`, sonde asynchrone lancée **sans être attendue** : l
 lecture ne doit jamais dépendre d'un `spawn`. Durée illisible ⇒ `null`, et le
 panneau montre le temps écoulé sans barre. **Une durée inconnue n'est pas une
 erreur** — ne la transforme pas en message d'avertissement.
+
+**Le fondu est séquentiel, pas enchaîné.** `inlineVolume` était déjà là : une
+rampe sur `setVolume` suffit, un seul lecteur, les pistes ne se recouvrent jamais.
+Ce n'est donc **pas** le fondu enchaîné écarté plus bas — celui-là demande deux
+lecteurs et un mélange, et reste écarté. Trois moments : entrée de piste, coupure
+voulue (`suivant()`, `stop()`, qui sont devenues `async` pour ça), et fin naturelle
+d'une piste **dont la durée est connue**. Ce dernier cas s'arme sur un `setTimeout`,
+y compris dans le `.then()` de la sonde de durée — sans quoi il ne s'armerait jamais
+pour une piste jouée avant que ffmpeg n'ait répondu. Une pause décale la fin réelle :
+plutôt qu'une deuxième minuterie pour la suivre, le fondu **se recale** au moment de
+partir en relisant `position`, qui ne ment pas.
+
+`rampe()` est exportée de `lib/musique.js` uniquement pour que `verif` puisse la
+vérifier hors ligne. Sa minuterie est `unref` — un fondu ne doit pas retenir le
+processus au moment de mourir —, donc `verif` tient lui-même la boucle d'évènements
+ouverte le temps de la mesure. Sans ça, Node sort avant la fin de la rampe et
+l'`await` ne se résout jamais.
+
+**Le volume envoyé est un produit de trois choses** : `volume` (le réglage
+d'Ilphrinn), `gain` (la correction de niveau de la piste) et `attenuation` (l'état
+du fondu, de 0 à 1). Chacun bouge de son côté, `#appliquerVolume()` recompose. C'est
+ce qui permet de régler le volume **pendant** un fondu sans que l'un écrase l'autre.
+**La jauge du panneau montre `volume` seul** — le réglage, pas la correction. Ne
+l'expose pas au produit : Ilphrinn ne comprendrait pas pourquoi sa jauge bouge toute
+seule.
+
+**Le niveau se mesure avec `volumedetect`, sur le patron exact de `duree.js`.**
+Même geste éprouvé : `spawn` de ffmpeg, lecture de stderr, cache par
+`chemin + mtime`, promesse mise en cache pour ne pas lancer deux sondes. Deux
+différences, toutes deux dans `lib/niveau.js` et commentées sur place : **le résumé
+n'arrive qu'à la toute fin** du flux, donc on garde la queue de stderr et non sa
+tête ; et **volumedetect décode le fichier entier** — une à trois secondes de
+processeur par piste. D'où : jamais attendu, jamais lancé sur toute la bibliothèque
+au démarrage, et `prevoir()` sur la piste suivante de la file pendant que la
+précédente joue. En pratique seule la toute première piste d'une séance est
+corrigée en cours de route, et par une glissade d'une seconde, pas par un saut.
+
+Le gain est plafonné à ±12 dB et borné par la crête (`max_volume + gain ≤ −1 dB`) :
+c'est cette seconde borne qui évite d'écrêter une piste au niveau moyen bas mais aux
+pics forts. Mesure illisible ⇒ gain de 1. **Un niveau inconnu n'est pas une erreur**,
+exactement comme une durée inconnue — ne le transforme pas en avertissement. Le
+cache est en mémoire, donc perdu au redémarrage : une sonde par piste jouée et par
+session, ça suffit. Pas de fichier de cache — le disque de Railway est éphémère.
 
 **La pochette n'est renvoyée qu'au changement.** Une édition de message qui ne
 parle ni de `files` ni de `attachments` conserve la pièce jointe déjà en place :
@@ -386,11 +479,16 @@ autre application et n'apparaissent jamais.
 
 ## Ce que j'ai laissé de côté, sciemment
 
-- **La reprise de lecture après redéploiement.** Aujourd'hui un redéploiement coupe
-  la musique. Il faudrait mémoriser salon et piste quelque part — mais il n'y a plus
-  de base, donc ce serait un fichier ou une variable d'environnement.
-- **Le fondu enchaîné** entre deux ambiances : deux lecteurs et un mélange, plus de
-  code qu'il n'y paraît.
+- **Le fondu enchaîné** entre deux ambiances, au sens strict — deux pistes qui se
+  recouvrent. Le fondu séquentiel est fait (voir plus haut) et couvre l'essentiel ;
+  l'enchaîné demanderait deux lecteurs et un mélange, pour un gain mince.
+- **Le jet caché du meneur** (`/d … secret`, réponse éphémère) : une dizaine de
+  lignes, proposé le 26 août et écarté par Ilphrinn faute d'usage immédiat. C'est
+  le manque le plus classique d'un bot de dés — s'il en reparle, c'est court.
+- **La reprise de lecture après un redéploiement.** Le bot laisse maintenant un mot
+  sur le panneau avant de partir, mais il ne reprend pas où il en était : il
+  faudrait mémoriser salon et piste quelque part, et il n'y a pas de base — ce
+  serait donc un fichier ou une variable d'environnement.
 - **La recherche par texte** dans la bibliothèque. `rechercher()` existait,
   accent-insensible et déjà plafonnée à 25 ; elle était morte depuis l'élagage et
   a été supprimée avec la navigation. Elle est dans l'historique git si le sujet
@@ -417,6 +515,22 @@ vérifié.
 
 Le vrai point de friction n'est pas le prix mais **l'acheminement des fichiers
 audio** : le `Dockerfile` fait `COPY assets ./assets`, donc il faut que les musiques
-soient dans le dépôt, ce que `.gitignore` empêche aujourd'hui. Si sa bibliothèque
-dépasse quelques centaines de mégaoctets, un VPS à 4 € devient plus simple et moins
-cher — c'est écrit dans le README, sans insistance.
+soient dans le dépôt, ce que `.gitignore` empêche aujourd'hui. Les `.gitkeep`
+sauvent l'arborescence — l'image contiendrait donc trente-six dossiers **vides** et
+un panneau qui dit « Aucun fichier », sans que rien n'explique pourquoi. C'est
+pour ça que le démarrage le crie maintenant en `log.warn` au lieu de le glisser
+dans une ligne d'info.
+
+**Ne conseille pas Git LFS sans l'avoir vérifié.** Le README le faisait ; une
+construction Docker ne récupère pas les objets LFS d'elle-même, et l'image se
+retrouverait avec des pointeurs de 132 octets — *toutes* les pistes échoueraient à
+la lecture. Je n'ai pas pu vérifier depuis cette machine ce que Railway en fait :
+la réserve est écrite telle quelle dans le README, et `verif` reconnaît désormais
+ces pointeurs (taille < 200 octets, en-tête `version https://git-lfs`) et les
+compte comme un problème.
+
+La règle donnée : moins de ~300 Mo, dans le dépôt sans LFS ; au-delà, un VPS à 4 €
+devient plus simple *et* moins cher. Et le levier qu'il ne faut pas oublier de
+mentionner : convertir en `.ogg` à 96–128 kb/s divise la taille par trois ou
+quatre, sans différence audible sur un fond sonore que Discord ré-encode de toute
+façon en Opus.

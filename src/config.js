@@ -32,6 +32,14 @@ export const config = {
   volumeDefaut: Math.min(2, Math.max(0, Number(process.env.VOLUME_DEFAUT ?? 0.35))),
   inactiviteMs: Number(process.env.INACTIVITE_MINUTES ?? 5) * 60_000,
 
+  // Duree du fondu, a l entree d une piste comme a sa coupure. 0 pour couper
+  // net. Ce n est pas le fondu enchaine : il n y a qu un seul lecteur.
+  fonduMs: Math.max(0, Number(process.env.FONDU_MS ?? 1500)),
+
+  // Niveau moyen vise, en dBFS, pour egaliser des fichiers d origines
+  // diverses. 0 desactive la correction et rend le volume brut des fichiers.
+  niveauCibleDb: Number(process.env.NIVEAU_CIBLE_DB ?? -20),
+
   // Cadence de la barre de progression du panneau. 0 pour la figer.
   // En dessous de 5 s, Discord finirait par limiter les editions du message.
   panneauMs: Math.max(0, Number(process.env.PANNEAU_SECONDES ?? 10)) * 1000,

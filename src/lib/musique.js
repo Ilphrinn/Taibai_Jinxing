@@ -9,6 +9,7 @@ import {
 import ffmpeg from 'ffmpeg-static';
 import { config } from '../config.js';
 import { duree } from './duree.js';
+import { niveau, prevoir, gainConnu } from './niveau.js';
 import { comparerLieu, comparerMajeure, lieuConnu, nomLieu, SANS_LIEU } from './lieux.js';
 import { log } from '../logger.js';
 
@@ -17,6 +18,42 @@ if (ffmpeg && !process.env.FFMPEG_PATH) process.env.FFMPEG_PATH = ffmpeg;
 
 const EXTENSIONS = new Set(['.mp3', '.ogg', '.opus', '.wav', '.flac', '.m4a', '.aac', '.webm']);
 export const MODES_BOUCLE = ['aucune', 'piste', 'liste'];
+
+// Un pas de fondu toutes les 40 ms : assez fin pour que l oreille n entende
+// pas les marches, assez gros pour ne rien couter.
+const PAS_FONDU = 40;
+
+// Quand la correction de niveau arrive apres le debut de la piste, on rejoint
+// le nouveau gain par une glissade plutot que par un saut audible.
+const GLISSADE_GAIN_MS = 1000;
+
+/**
+ * Interpole d une valeur a une autre en appelant `poser` a chaque pas.
+ * Rend de quoi attendre la fin ET de quoi l interrompre : un fondu en cours
+ * doit ceder la place au suivant sans se battre avec lui.
+ *
+ * Exportee pour que `npm run verif` puisse verifier la rampe hors ligne : sans
+ * connexion, c est le seul moyen de voir qu un fondu arrive bien a destination.
+ */
+export function rampe(depuis, vers, ms, poser) {
+  if (ms <= 0 || depuis === vers) {
+    poser(vers);
+    return { promesse: Promise.resolve(), annuler() {} };
+  }
+  let fini;
+  const promesse = new Promise((r) => { fini = r; });
+  const debut = Date.now();
+  const minuterie = setInterval(() => {
+    const part = Math.min(1, (Date.now() - debut) / ms);
+    poser(depuis + (vers - depuis) * part);
+    if (part >= 1) { clearInterval(minuterie); fini(); }
+  }, PAS_FONDU);
+  minuterie.unref?.();
+  return {
+    promesse,
+    annuler() { clearInterval(minuterie); fini(); },
+  };
+}
 
 // --- Bibliotheque --------------------------------------------------------
 
@@ -119,10 +156,20 @@ class Session {
     this.rang = 0;
     this.total = 0;
 
+    // Le volume reellement envoye est le produit de trois choses : le reglage
+    // demande (`volume`), la correction de niveau de la piste (`gain`, mesuree
+    // par lib/niveau.js) et l etat du fondu (`attenuation`, de 0 a 1). Seul
+    // `volume` est montre dans le panneau : c est le reglage, pas la correction.
+    this.gain = 1;
+    this.attenuation = 1;
+    this.fondu = null;      // rampe d attenuation en cours
+    this.glissade = null;   // rampe de gain en cours
+    this.finProche = null;  // minuterie du fondu de sortie
+
     // Le panneau de /musique s accroche ici : la session previent quand son
     // etat change de lui-meme (fin de piste, retrait pour inactivite), sinon
-    // l affichage mentirait jusqu au prochain clic.
-    this.panneau = null;
+    // l affichage mentirait jusqu au prochain clic. Le panneau lui-meme ne vit
+    // PAS ici — il doit survivre a la session (voir commands/musique.js).
     this.surChangement = null;
 
     this.connexion = joinVoiceChannel({
@@ -194,6 +241,8 @@ class Session {
 
   async #jouerSuivante() {
     this.#annulerMinuterie();
+    this.#annulerFondu();
+    this.#annulerFinProche();
     const piste = this.file.shift();
     if (!piste) {
       this.courante = null;
@@ -210,23 +259,106 @@ class Session {
       inlineVolume: true,
       metadata: piste,
     });
-    this.ressource.volume?.setVolume(this.volume);
+
+    // Le gain deja mesure s applique tout de suite ; sinon on part a 1 et on y
+    // glissera quand la mesure arrivera.
+    this.gain = gainConnu(piste.chemin);
+    this.attenuation = config.fonduMs > 0 ? 0 : 1;
+    this.#appliquerVolume();
     this.lecteur.play(this.ressource);
     log.info(`[${this.guildeId}] lecture : ${piste.id}`);
 
+    // Fondu d entree : on monte du silence au volume voulu.
+    this.#fondre(1, config.fonduMs);
+
     // La duree se sonde en tache de fond : la lecture n a pas a attendre
     // ffmpeg, et une duree inconnue n empeche rien. Le panneau se redessine
-    // quand elle arrive, pour faire apparaitre la barre de progression.
-    if (!piste.duree) {
+    // quand elle arrive, pour faire apparaitre la barre de progression — et
+    // c est aussi elle qui permet d armer le fondu de sortie.
+    if (piste.duree) {
+      this.#armerFinProche();
+    } else {
       duree(piste.chemin).then((ms) => {
         if (!ms) return;
         piste.duree = ms;
-        if (this.courante === piste) this.surChangement?.();
+        if (this.courante !== piste) return;
+        this.#armerFinProche();
+        this.surChangement?.();
       }).catch(() => { /* une duree inconnue n est pas une erreur */ });
     }
 
+    // La mesure de niveau decode le fichier entier : on ne l attend pas. Si
+    // elle arrive en cours de lecture, on rejoint le gain par une glissade.
+    niveau(piste.chemin).then((mesure) => {
+      if (!mesure || this.courante !== piste) return;
+      this.#glisserGain(mesure.gain);
+    }).catch(() => { /* un niveau inconnu n est pas une erreur */ });
+
+    // Et on prend de l avance sur la suivante : le temps qu elle arrive, son
+    // gain sera connu et rien ne bougera en cours de lecture.
+    prevoir(this.file[0]?.chemin);
+
     this.surChangement?.();
     return piste;
+  }
+
+  // --- Volume, fondu ------------------------------------------------------
+
+  #appliquerVolume() {
+    this.ressource?.volume?.setVolume(this.volume * this.gain * this.attenuation);
+  }
+
+  #annulerFondu() {
+    this.fondu?.annuler();
+    this.fondu = null;
+  }
+
+  /** Amene l attenuation a `vers` (0 = silence, 1 = plein). */
+  #fondre(vers, ms = config.fonduMs) {
+    this.#annulerFondu();
+    this.fondu = rampe(this.attenuation, vers, ms, (v) => {
+      this.attenuation = v;
+      this.#appliquerVolume();
+    });
+    return this.fondu.promesse;
+  }
+
+  /** Rejoint un gain fraichement mesure sans saut audible. */
+  #glisserGain(vers) {
+    this.glissade?.annuler();
+    this.glissade = rampe(this.gain, vers, GLISSADE_GAIN_MS, (v) => {
+      this.gain = v;
+      this.#appliquerVolume();
+    });
+  }
+
+  #annulerFinProche() {
+    if (this.finProche) { clearTimeout(this.finProche); this.finProche = null; }
+  }
+
+  /**
+   * Arme le fondu de sortie d une piste qui va se terminer d elle-meme.
+   * Une pause decale la fin reelle : plutot qu une deuxieme minuterie pour la
+   * suivre, on se recale au moment de fondre — `position` ne ment pas.
+   */
+  #armerFinProche() {
+    this.#annulerFinProche();
+    if (config.fonduMs <= 0 || !this.courante?.duree) return;
+    const reste = this.courante.duree - this.position - config.fonduMs;
+    this.finProche = setTimeout(() => {
+      this.finProche = null;
+      const encore = (this.courante?.duree ?? 0) - this.position - config.fonduMs;
+      if (encore > 250) { this.#armerFinProche(); return; }
+      this.#fondre(0);
+    }, Math.max(0, reste));
+    this.finProche.unref?.();
+  }
+
+  /** Descend au silence avant une coupure voulue. */
+  async #fondreSortie() {
+    this.#annulerFinProche();
+    if (config.fonduMs <= 0 || !this.courante) return;
+    await this.#fondre(0);
   }
 
   async #surFin() {
@@ -243,7 +375,8 @@ class Session {
     }
   }
 
-  suivant() {
+  async suivant() {
+    await this.#fondreSortie();
     const ancienne = this.boucle;
     if (ancienne === 'piste') this.boucle = 'aucune'; // passer outre la boucle sur une piste
     this.lecteur.stop(true);
@@ -255,7 +388,9 @@ class Session {
 
   definirVolume(v) {
     this.volume = Math.min(2, Math.max(0, v));
-    this.ressource?.volume?.setVolume(this.volume);
+    // Le fondu et la correction de niveau restent ou ils en sont : un reglage
+    // en cours de fondu ne doit ni l annuler ni etre ecrase par lui.
+    this.#appliquerVolume();
     return this.volume;
   }
 
@@ -275,7 +410,8 @@ class Session {
     return n;
   }
 
-  stop() {
+  async stop() {
+    await this.#fondreSortie();
     this.vider();
     this.boucle = 'aucune';
     this.courante = null;
@@ -305,6 +441,10 @@ class Session {
 
   detruire() {
     this.#annulerMinuterie();
+    this.#annulerFinProche();
+    this.#annulerFondu();
+    this.glissade?.annuler();
+    this.glissade = null;
     try { this.lecteur.stop(true); } catch { /* ignore */ }
     try { this.connexion.destroy(); } catch { /* deja detruite */ }
     this.courante = null;

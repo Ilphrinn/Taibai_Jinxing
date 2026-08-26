@@ -373,4 +373,20 @@ export function rendu(s, guilde) {
   return message;
 }
 
-export default { rendu, oublierPochette };
+/**
+ * Ce qu on laisse a l ecran en s arretant. Sans boutons : ils ne repondraient
+ * plus a personne, et un panneau fige sur « En lecture » ferait chercher une
+ * panne la ou il n y a qu un redeploiement.
+ */
+export function renduRedemarrage() {
+  return {
+    embeds: [new EmbedBuilder()
+      .setColor(COULEURS.encre)
+      .setTitle('太白金星 — Ambiances')
+      .setDescription('🌙 Je redémarre. Relance `/musique` dans un instant.')],
+    components: [],
+    attachments: [],
+  };
+}
+
+export default { rendu, renduRedemarrage, oublierPochette };

@@ -29,7 +29,16 @@ client.commandes = await chargerCommandes();
 
 client.once(Events.ClientReady, (c) => {
   log.ok(`Connecte comme ${c.user.tag} (${c.user.id})`);
-  log.info(`Serveurs : ${c.guilds.cache.size} · Pistes en bibliotheque : ${bibliotheque({ forcer: true }).length}`);
+  const pistes = bibliotheque({ forcer: true }).length;
+  log.info(`Serveurs : ${c.guilds.cache.size} · Pistes en bibliotheque : ${pistes}`);
+
+  // Une bibliotheque vide en ligne, c est presque toujours l acheminement des
+  // fichiers qui a echoue — pas le bot. Il faut que ca se voie dans le journal
+  // plutot que de se decouvrir sur un panneau qui n affiche rien.
+  if (!pistes) {
+    log.warn(`Aucun fichier audio dans ${config.dossierMusique} — /musique n aura rien a jouer.`);
+    log.warn('Voir README, section 5 : les musiques doivent arriver jusqu a la machine.');
+  }
   c.user.setPresence({
     activities: [{ name: 'les registres du Ciel', type: ActivityType.Watching }],
     status: 'online',
@@ -88,8 +97,22 @@ function arreter(signal, code = 0) {
   if (arretEnCours) return;
   arretEnCours = true;
   log.info(`Arret (${signal})...`);
+
+  // Quitter les salons vocaux d abord : c est la seule chose qui laisserait
+  // une connexion morte derriere elle.
   toutQuitter();
-  client.destroy().finally(() => process.exit(code));
+
+  // Puis les adieux. Une commande qui a pose quelque chose de durable dans un
+  // salon — le panneau de /musique — peut exporter `arret()` pour le retirer
+  // avant de mourir. Rien a tenir a jour : la convention suffit, comme pour
+  // `composant` et `autocomplete`.
+  // `commandes` peut ne pas exister encore si l on meurt tres tot au demarrage.
+  const adieux = [...new Set(client.commandes?.values() ?? [])].map((c) => c.arret?.());
+  Promise.allSettled(adieux)
+    .then(() => client.destroy())
+    .finally(() => process.exit(code));
+
+  // Garde-fou : Railway n attend pas indefiniment, et nous non plus.
   setTimeout(() => process.exit(code), 5_000).unref();
 }
 

@@ -56,14 +56,33 @@ if (!pistes.length) {
   console.log('    dans le sous-dossier du lieu, ou a la racine de l un des deux.');
 }
 
+// Le piege de Git LFS : une construction Docker ne recupere pas forcement les
+// objets, et l image se retrouve avec des pointeurs de 132 octets au lieu des
+// fichiers. Toutes les pistes echoueraient a la lecture sans dire pourquoi.
+// On les reconnait a leur taille et a leur premiere ligne.
+{
+  const fs = await import('node:fs');
+  const pointeurs = pistes.filter((p) => {
+    try {
+      if (fs.statSync(p.chemin).size > 200) return false;
+      const tete = fs.readFileSync(p.chemin, 'latin1').slice(0, 40);
+      return tete.startsWith('version https://git-lfs');
+    } catch { return false; }
+  });
+  if (pointeurs.length) {
+    probleme(`${pointeurs.length} piste(s) ne sont que des pointeurs Git LFS, pas du son.`);
+    console.log('    Les objets LFS n ont pas ete recuperes ici. Voir README, section 5 :');
+    console.log('    le plus sur est de versionner l audio SANS LFS.');
+  }
+}
+
 console.log('\n── Panneau ' + '─'.repeat(58));
 // Le bot ne s est jamais connecte : tout ce qui peut etre prouve hors ligne
 // doit l etre. On dessine le panneau sur de fausses sessions et on verifie les
 // contraintes de Discord — c est exactement ce qui casse au premier lancement.
 {
-  const { rendu } = await import('./lib/panneau.js');
+  const { rendu, renduRedemarrage } = await import('./lib/panneau.js');
   const { AudioPlayerStatus } = await import('@discordjs/voice');
-  const { duree } = await import('./lib/duree.js');
 
   // Une piste d exemple, vraie si la bibliotheque en contient une.
   const exemple = pistes[0] ?? {
@@ -148,14 +167,60 @@ console.log('\n── Panneau ' + '─'.repeat(58));
   console.log(`  Menu      : ${vu.lieux.length} lieu(x) · ${vu.pistes.length} piste(s) affichee(s) sur ${vu.total}`);
   console.log(`  Rangees   : ${dessin.components.length} · ${cas.length} cas rendus sans erreur`);
 
-  // On exerce la sonde de duree pour de vrai : c est aussi un test de ffmpeg.
+  // Le panneau de redemarrage : c est ce qu on laisse a l ecran en mourant.
+  const adieu = renduRedemarrage();
+  if (adieu.components.length) probleme('Le panneau de redemarrage garde des boutons.');
+  console.log(`  Adieu     : ${adieu.embeds[0].toJSON().description}`);
+}
+
+console.log('\n── Son ' + '─'.repeat(62));
+{
+  const { duree } = await import('./lib/duree.js');
+  const { niveau } = await import('./lib/niveau.js');
+  const { rampe } = await import('./lib/musique.js');
+
+  // Les deux sondes ffmpeg, exercees pour de vrai : c est aussi le seul test
+  // de ffmpeg lui-meme qu on puisse faire hors ligne.
   if (pistes.length) {
-    const ms = await duree(pistes[0].chemin);
-    console.log(`  Sonde     : ${pistes[0].titre} — ${ms ? `${Math.round(ms / 1000)} s` : 'duree illisible'}`);
-    if (!ms) console.log('  ℹ Sans duree, le panneau montre le temps ecoule mais pas de barre.');
+    const p = pistes[0];
+    const ms = await duree(p.chemin);
+    console.log(`  Duree     : ${p.titre} — ${ms ? `${Math.round(ms / 1000)} s` : 'illisible'}`);
+    if (!ms) console.log('  ℹ Sans duree : pas de barre de progression, et pas de fondu de sortie.');
+
+    if (!config.niveauCibleDb) {
+      console.log('  Niveau    : correction desactivee (NIVEAU_CIBLE_DB=0).');
+    } else {
+      const n = await niveau(p.chemin);
+      console.log(n
+        ? `  Niveau    : moyen ${n.moyen} dB · crete ${n.crete} dB `
+          + `→ gain ×${n.gain.toFixed(2)} (cible ${config.niveauCibleDb} dB)`
+        : '  Niveau    : illisible — la piste sera jouee telle quelle.');
+    }
   } else {
-    console.log('  Sonde     : aucune piste a sonder.');
+    console.log('  Sondes    : aucune piste a sonder.');
   }
+
+  // La rampe de fondu : sans connexion, c est le seul moyen de verifier qu un
+  // fondu part bien de zero et arrive bien a destination.
+  //
+  // La minuterie du fondu est `unref` — un fondu ne doit pas retenir le
+  // processus au moment de mourir. Ici, rien d autre ne tient la boucle
+  // d evenements ouverte : on la tient nous-memes, le temps de la mesure.
+  const tenir = setInterval(() => {}, 50);
+  const pas = [];
+  await rampe(0, 1, 200, (v) => pas.push(v)).promesse;
+  const dernier = pas[pas.length - 1];
+  if (dernier !== 1) probleme(`La rampe de fondu s arrete a ${dernier} au lieu de 1.`);
+  console.log(`  Fondu     : ${config.fonduMs} ms · rampe d essai en ${pas.length} pas, `
+    + `de ${pas[0]?.toFixed(2)} a ${dernier?.toFixed(2)}`);
+
+  // Une rampe interrompue doit rendre la main, sinon un fondu annule laisserait
+  // une promesse en suspens et « suivant » n avancerait plus.
+  const coupee = rampe(0, 1, 5_000, () => {});
+  coupee.annuler();
+  await coupee.promesse;
+  console.log('  Rampe     : une rampe annulee rend bien la main.');
+  clearInterval(tenir);
 }
 
 console.log('\n── Permissions ' + '─'.repeat(54));

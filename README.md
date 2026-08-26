@@ -257,10 +257,46 @@ jade, or, encre.
 Si la durée d'un fichier ne se lit pas, le panneau affiche le temps écoulé sans
 barre plutôt que d'inventer une position.
 
-Il faut être dans un salon vocal pour ouvrir le panneau. Relancer `/musique` dans
-le même salon réutilise le panneau déjà posé au lieu d'en empiler un second. Le
-bot quitte après cinq minutes de silence, et immédiatement si plus personne
+**Tu n'as pas besoin d'être en vocal pour ouvrir le panneau.** Sans salon vocal,
+il se pose quand même : la navigation vit, les boutons de lecture sont grisés, et
+le bot te le dit. Il ne vient que le jour où tu lances une piste.
+
+**Le panneau se replace quand il a été enterré.** Relancer `/musique` l'édite sur
+place s'il est encore le dernier message du salon ; sinon il en poste un neuf en
+bas et efface l'ancien. Après deux heures de conversation, c'est la différence
+entre un panneau utilisable et un panneau qu'il faut aller chercher.
+
+**Le panneau appartient à celui qui l'a ouvert.** Lui seul commande la lecture —
+jouer, mettre en pause, changer le volume, arrêter. La navigation reste ouverte à
+tous : n'importe qui peut regarder ce que contient la bibliothèque sans toucher à
+ce qui joue. Si tu quittes le salon vocal, quelqu'un d'autre peut reprendre la
+main avec `/musique` ; tant que tu y es, le bot lui répond qui tient le panneau.
+
+Le bot quitte après cinq minutes de silence, et immédiatement si plus personne
 n'écoute (`INACTIVITE_MINUTES` dans `.env`).
+
+#### Le fondu et le volume
+
+**Les pistes entrent et sortent en fondu**, une seconde et demie par défaut
+(`FONDU_MS` dans `.env`, `0` pour couper net) : à l'ouverture d'une piste, à sa
+coupure quand tu passes à la suivante, et à la fin d'une piste dont la durée est
+connue. Ce n'est pas un fondu enchaîné — il n'y a qu'un seul lecteur, les deux
+pistes ne se recouvrent pas.
+
+**Le bot égalise le volume d'une piste à l'autre.** Des fichiers d'origines
+diverses n'ont pas du tout le même niveau : sans correction, la piste de combat
+hurle et l'ambiance chuchote, et tu passes la séance sur les boutons de volume.
+Le bot mesure chaque piste une fois avec ffmpeg et applique le gain qu'il faut
+pour l'amener à −20 dBFS (`NIVEAU_CIBLE_DB`, `0` pour désactiver), sans jamais
+écrêter ni corriger de plus de 12 dB.
+
+La mesure décode le fichier entier, donc elle **ne bloque jamais la lecture** :
+elle tourne à côté, et le bot prend de l'avance sur la piste suivante pendant que
+la précédente joue. Si elle arrive en cours de route, le niveau est rejoint par
+une glissade d'une seconde, pas par un saut. La jauge du panneau continue de
+montrer **ton** réglage, pas la correction — c'est le réglage que tu contrôles.
+
+Un fichier illisible n'est pas une erreur : il est joué tel quel.
 
 #### Illustrer les ambiances
 
@@ -384,15 +420,31 @@ l'intérieur du crédit inclus dans le plan Hobby.
 
 ### Faire arriver les musiques sur le serveur
 
-C'est le seul vrai point de friction. Le `Dockerfile` fait `COPY assets ./assets` :
-il faut donc que les fichiers soient dans le dépôt git, ce que `.gitignore` empêche
-aujourd'hui. Pour l'autoriser, retire les lignes `assets/musique/**/*` du
-`.gitignore` — convient jusqu'à quelques centaines de mégaoctets, avec Git LFS de
-préférence.
+C'est le seul vrai point de friction, et **il se réglera en silence si tu n'y
+prends pas garde** : `.gitignore` exclut les huit extensions audio, le `Dockerfile`
+fait `COPY assets ./assets`, et les `.gitkeep` sauvent l'arborescence. Résultat en
+ligne : trente-six dossiers **vides**, un panneau qui affiche « Aucun fichier », et
+rien qui explique pourquoi. Le bot le dit maintenant dans son journal au démarrage,
+mais encore faut-il aller le lire.
 
-Au-delà, un VPS devient plus simple *et* moins cher, parce que tu cesses de payer
-pour transporter des fichiers audio à chaque déploiement :
-`scp -r assets/musique serveur:/opt/taibai/assets/`.
+C'est la taille de ta bibliothèque qui décide :
+
+| Taille | Ce qu'on fait |
+|---|---|
+| **moins de ~300 Mo** | retire les lignes `assets/musique/**/*` du `.gitignore`. Le dépôt grossit, le déploiement reste un `git push`. |
+| **plus de ~300 Mo** | VPS, et les fichiers déposés une fois pour toutes : `scp -r assets/musique serveur:/opt/taibai/assets/`. Tu cesses de payer le transport de l'audio à chaque déploiement. |
+
+> **N'utilise pas Git LFS sans l'avoir vérifié d'abord.** Une construction Docker
+> ne récupère pas les objets LFS d'elle-même : l'image se retrouverait avec des
+> fichiers de 132 octets commençant par `version https://git-lfs.github.com/…`, et
+> **toutes** les pistes échoueraient à la lecture. Je n'ai pas pu vérifier depuis
+> cette machine ce que Railway en fait pendant la construction. `npm run verif`
+> reconnaît ces pointeurs et les signale comme un problème — mais le plus sûr
+> reste de versionner l'audio sans LFS.
+
+Un dernier levier, et il est gros : **convertir la bibliothèque en `.ogg` à
+96–128 kb/s** divise la taille par trois ou quatre. Sur une ambiance de fond que
+Discord ré-encode de toute façon en Opus, personne n'entendra la différence.
 
 ---
 
@@ -406,7 +458,12 @@ pour transporter des fichiers audio à chaque déploiement :
 | Tout retirer | `npm run commandes:purge` |
 | Le bot ne parle pas dans le salon vocal | vérifie « Se connecter » et « Parler » **sur le salon**, pas seulement sur le serveur |
 | Un bouton ne répond plus | le panneau d'une session terminée est inerte : relance `/musique` |
+| « Ce panneau est tenu par… » | quelqu'un d'autre l'a ouvert. Il rend la main en quittant le salon vocal. |
+| Le panneau dit « Je redémarre » | c'est le mot laissé avant un redéploiement. Relance `/musique`. |
+| Un panneau figé, sans ce mot | le bot a été tué net (SIGKILL) : il n'a rien pu écrire. Relance `/musique`, l'ancien sera effacé. |
 | La barre de progression ne bouge pas | durée du fichier illisible, ou `PANNEAU_SECONDES=0`. `npm run verif` sonde une piste et le dit. |
+| Une piste sonne trop fort ou trop faible | `npm run verif` affiche son niveau mesuré et le gain retenu. `NIVEAU_CIBLE_DB=0` désactive la correction. |
+| « Aucun fichier » alors qu'il y en a | l'acheminement a échoué, pas le bot. Journal au démarrage, et section 5. |
 | Vérifier la chaîne audio | `npm run verif` — liste l'encodeur Opus, le chiffrement et ffmpeg |
 | Voir ce qui se passe | `LOG_LEVEL=debug` dans `.env` |
 
@@ -415,9 +472,15 @@ pour transporter des fichiers audio à chaque déploiement :
 ## 7. Ce qui n'est pas encore là
 
 - **Reprise de la lecture après un redéploiement** : aujourd'hui, un redéploiement
-  coupe la musique. Il faudrait mémoriser le salon et la piste quelque part.
-- **Fondu enchaîné** entre deux ambiances. Faisable, mais il faut deux lecteurs et
-  un mélange — plus de code qu'il n'y paraît.
+  coupe la musique. Le bot laisse un mot sur le panneau avant de partir, mais il ne
+  reprend pas où il en était — il faudrait mémoriser le salon et la piste quelque
+  part, et il n'y a pas de base de données.
+- **Fondu enchaîné** entre deux ambiances, c'est-à-dire deux pistes qui se
+  recouvrent. Le fondu simple est là depuis le 26 août ; l'enchaîné demanderait
+  deux lecteurs et un mélange — plus de code qu'il n'y paraît, pour un gain mince.
+- **Un jet de dés caché**, visible du seul meneur. Une option sur `/d` et une
+  réponse en éphémère : une dizaine de lignes, écartées le 26 août faute d'en
+  avoir l'usage tout de suite.
 - **Une recherche par texte** dans la bibliothèque. La navigation par lieu suffit
   tant qu'un lieu ne déborde pas ; au-delà, il faudrait une fenêtre de saisie — et
   le panneau n'a plus une rangée de libre.
@@ -446,6 +509,7 @@ src/
         navigation.js     où en est le panneau : majeure, lieu, page
         panneau.js        le dessin du panneau : jauges, pochettes, boutons
         duree.js          durée d'un fichier audio, sondée par ffmpeg
+        niveau.js         niveau sonore et gain d'égalisation, sondés par ffmpeg
         couleurs.js       la palette
         permissions.js    la liste qui produit le lien d'invitation
 ```
@@ -453,4 +517,6 @@ src/
 Ajouter une commande : un fichier dans `src/commands/` qui exporte `{ data, execute }`,
 puis `npm run commandes`. Le chargeur le trouve tout seul. Pour des boutons, exporte
 en plus `composant` et préfixe leurs identifiants du nom de la commande
-(`macommande:action`) — `index.js` aiguille dessus tout seul.
+(`macommande:action`) — `index.js` aiguille dessus tout seul. Et si elle laisse
+quelque chose de durable dans un salon, qu'elle exporte `arret` : `index.js`
+l'appelle avant que le processus ne meure.
