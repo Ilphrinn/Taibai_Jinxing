@@ -19,14 +19,11 @@ percentile — ni sur game-icons.net, ni dans son dépôt amont, vérifié. Plut
 qu'une image approximative, le bot affiche **deux fois l'émoji du d10**, ce qui
 est exactement ce qu'on lance sur une vraie table. Rien à téléverser de plus.
 
-**Le d8 manque.** game-icons.net renvoie une erreur 403 constante sur ce seul
-icône en fond transparent, alors que ses voisins passent, et sert une page HTML
-à la place du PNG. C'est un défaut de leur côté. Si tu en as besoin, réessaie :
-
-    https://game-icons.net/icons/ffffff/transparent/1x1/delapouite/dice-eight-faces-eight.png
-
-et nomme le fichier d8.png — mais il faudra aussi ajouter 8 à la liste TYPES
-dans src/lib/commande-des.js, sinon le bot ne le cherchera pas.
+**Le d8 n'a pas d'image propre, mais il n'en a pas besoin.** game-icons.net
+renvoie une erreur 403 constante sur ce seul icône en fond transparent, alors
+que ses voisins passent, et sert une page HTML à la place du PNG. Qu'à cela ne
+tienne : le bot le compose en d6 + d2. Même chose pour tous les dés pairs qu'il
+sait additionner (voir plus bas).
 
 
 Comment les téléverser
@@ -55,10 +52,23 @@ en gras, et le total vient après la flèche.
 Un dé seul et sans modificateur n'affiche que son total : le détailler
 n'apprendrait rien.
 
-Tous les dés sont acceptés, y compris ceux qui n'existent pas. Faute d'image,
-le bot met le 🎲 et rappelle la notation en fin de ligne :
+Tous les dés sont acceptés, même ceux qui n'existent pas : le bot leur compose
+une icône en ADDITIONNANT les dés qu'il a.
 
-    /d 3d27        →  🎲 6  ·  🎲 24  ·  🎲 4   →   34  ·  `3d27`
+    /d 1d26        →  [d20][d6] 7          26 = 20 + 6
+    /d 1d8         →  [d6][d2] 4           8 = 6 + 2
+    /d 1d30        →  [d20][d10] 28        30 = 20 + 10
+    /d 1d14        →  [d12][d2] 7          14 = 12 + 2
+
+La somme doit tomber juste, et s'arrête à trois icônes. Quand c'est impossible,
+c'est le d6 qui prend le relais :
+
+    /d 1d27        →  [d6] 23
+
+Les dés impairs y tombent tous, et c'est arithmétique : les six dés illustrés
+ont un nombre pair de faces, donc leur somme est toujours paire. d3, d5, d7,
+d27 sont hors d'atteinte. Les très grands aussi, comme d1000. Un d27 ressemble
+donc à un d6 — le nombre lève l'ambiguïté, pas l'icône.
 
 
 Un septième émoji, facultatif : Power

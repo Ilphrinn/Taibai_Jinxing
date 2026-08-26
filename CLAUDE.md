@@ -146,14 +146,33 @@ delà de `MAX_DES_DETAILLES`, on repasse à la forme compacte, précédée de
 l'émoji `Power` — le nom vient d'Ilphrinn, aucune image n'est fournie pour
 celui-là.
 
-**Tout dé est accepté, même inexistant.** `1d27`, `1d1000` : faute d'image, le
-bot met le 🎲 et **rappelle la notation en fin de ligne**, sinon on ne saurait
-pas ce qui a été lancé. C'est aussi ce qui rend les jets mêlés (`1d6+1d20`)
-lisibles sans règle particulière : chaque dé porte son propre symbole.
+**Tout dé est accepté, même inexistant** — `1d27`, `1d1000` marchent, voir la
+règle de composition plus bas. C'est aussi ce qui rend les jets mêlés
+(`1d6+1d20`) lisibles sans règle particulière : chaque dé porte son propre
+symbole, il n'y a plus de contrainte « un seul type par jet ».
 
 La recherche d'émoji est **insensible à la casse** : Discord conserve la casse
 du nom de fichier au téléversement, et échouer en silence sur un « P » serait
 pénible à diagnostiquer.
+
+
+**Un dé sans icône propre s'écrit comme une SOMME de dés existants.** `d26`
+devient `d20`+`d6`, `d8` devient `d6`+`d2`, `d30` devient `d20`+`d10`. Glouton,
+du plus grand au plus petit, exact — une approximation mentirait — et plafonné à
+trois pièces au-delà desquelles ça ne se lit plus. C'est Ilphrinn qui a demandé
+ce comportement, après avoir refusé le 🎲 générique.
+
+Effet secondaire heureux : le d8, dont l'image manque, n'en a plus besoin.
+
+**Quand la somme est impossible, on prend le `d6`**, sur sa demande — un vrai dé
+plutôt qu'un pictogramme dépareillé. Tous les dés impairs y tombent, et c'est
+arithmétique : les six dés illustrés ont un nombre pair de faces, donc leur
+somme l'est toujours. `d3`, `d5`, `d7`, `d27` sont hors d'atteinte. Conséquence
+assumée et signalée : un `d27` ressemble à un `d6`.
+
+**Il n'y a plus de rappel de notation en fin de ligne.** Il avait été ajouté
+pour lever l'ambiguïté sur les dés sans image ; Ilphrinn l'a trouvé encombrant
+et la décomposition l'a rendu presque inutile. Ne le remets pas.
 
 **Le d100 n'a pas d'image, et il ne faut pas lui en inventer une.** J'avais
 d'abord recyclé celle du d10 ; Ilphrinn a eu raison de le refuser, c'était du

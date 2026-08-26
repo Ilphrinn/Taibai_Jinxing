@@ -48,7 +48,28 @@ function emoji(guilde, nom) {
   return guilde?.emojis.cache.find((e) => e.name.toLowerCase() === cherche)?.toString() ?? null;
 }
 
-/** L image d un type de de, ou null si le serveur ne l a pas. */
+// Un de sans image propre est ecrit comme une SOMME de des existants : le d26
+// devient un d20 suivi d un d6, le d8 un d6 suivi d un d2. Glouton, du plus
+// grand au plus petit, et il faut tomber juste — une approximation mentirait.
+const DENOMINATIONS = [20, 12, 10, 6, 4, 2];
+
+// Au-dela, la somme cesse de se lire d un coup d oeil et ne vaut plus mieux
+// qu un de generique.
+const MAX_PIECES = 3;
+
+function decomposer(faces) {
+  const pieces = [];
+  let reste = faces;
+  for (const d of DENOMINATIONS) {
+    while (reste >= d && pieces.length < MAX_PIECES) { pieces.push(d); reste -= d; }
+    if (reste === 0) return pieces;
+  }
+  // Toutes les denominations sont paires : un de impair est donc impossible a
+  // ecrire ainsi. d3, d5, d7, d27 tombent tous ici.
+  return null;
+}
+
+/** L image d un type de de, ou null si on ne sait pas la composer. */
 function image(guilde, faces) {
   // Le percentile n a pas d icone, ni sur game-icons.net ni dans son depot
   // amont : on montre les deux d10 qu on lance reellement.
@@ -56,13 +77,20 @@ function image(guilde, faces) {
     const d10 = emoji(guilde, 'd10');
     return d10 && d10 + d10;
   }
-  return TYPES.has(faces) ? emoji(guilde, `d${faces}`) : null;
+
+  if (TYPES.has(faces)) return emoji(guilde, `d${faces}`);
+
+  const pieces = decomposer(faces);
+  if (!pieces) return null;
+  const images = pieces.map((p) => emoji(guilde, `d${p}`));
+  return images.every(Boolean) ? images.join('') : null;
 }
 
-// Un de sans image — d7, d27, d1000 — retombe sur le 🎲 generique. On note au
-// passage que le jet n est pas entierement illustre : la notation sera alors
-// rappelee en fin de ligne, sinon on ne saurait pas quel de a ete lance.
-const symbole = (guilde, faces) => image(guilde, faces) ?? '🎲';
+// Ce qui reste sans image — les des impairs, les tres grands — prend le d6,
+// choix d Ilphrinn : un vrai de plutot qu un pictogramme depareille. Un d27
+// ressemble donc a un d6, ce qu il faut assumer. Le 🎲 ne sert plus que si le
+// serveur n a meme pas televerse ses emojis.
+const symbole = (guilde, faces) => image(guilde, faces) ?? emoji(guilde, 'd6') ?? '🎲';
 
 // Un extreme se remarque : 1 ou face maximale, a partir du d6. Un de ecarte
 // par kh/kl est barre.
@@ -93,14 +121,10 @@ function rendre(interaction, r) {
     return `${s} **${r.total}**  ·  ${r.detail}`;
   }
 
-  // Si un seul de est illustre a moitie, on rappelle la notation a la fin.
-  const toutIllustre = groupes.every((t) => image(guilde, t.faces));
-  const rappel = toutIllustre ? '' : `  ·  \`${r.expression}\``;
-
   // Un seul de, sans modificateur : le total dit tout, le detailler serait un
   // doublon — c est ce qu Ilphrinn avait releve.
   if (r.termes.length === 1 && groupes.length === 1 && groupes[0].nb === 1) {
-    return `${symbole(guilde, groupes[0].faces)} **${r.total}**${rappel}`;
+    return `${symbole(guilde, groupes[0].faces)} **${r.total}**`;
   }
 
   const morceaux = [];
@@ -116,7 +140,7 @@ function rendre(interaction, r) {
     }
   }
 
-  return `${morceaux.join('  ·  ')}   →   **${r.total}**${rappel}`;
+  return `${morceaux.join('  ·  ')}   →   **${r.total}**`;
 }
 
 export async function executer(interaction) {

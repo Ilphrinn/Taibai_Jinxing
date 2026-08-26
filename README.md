@@ -99,17 +99,20 @@ d'habitude. Un seul argument, insensible à la casse, tolérant aux espaces.
 | `/d 4d6kh3` | garde les 3 plus hauts (`kh`), `3d10kl1` garde le plus bas (`kl`) |
 
 L'affichage ne dit que ce qui apprend quelque chose : un dé unique sans
-modificateur donne `🎲 14`, rien de plus. Dès qu'il y a plusieurs dés, un
-modificateur ou des dés écartés, le détail apparaît — sinon tu ne saurais pas
-ce qui a été gardé :
+modificateur donne son total, rien de plus. Dès qu'il y a plusieurs dés, un
+modificateur ou des dés écartés, chaque dé apparaît séparément — sinon tu ne
+saurais pas ce qui a été gardé :
 
 ```
 /d 20        →  🎲 14
-/d 2d6+3     →  🎲 9  ·  2d6 [4, 2] +3
-/d 4d6kh3    →  🎲 16  ·  4d6kh3 [~~1~~, 5, 5, 6]
+/d 3d20      →  🎲 15  ·  🎲 1  ·  🎲 12   →   28
+/d 2d6+3     →  🎲 2  ·  🎲 4  ·  +3   →   9
+/d 4d6kh3    →  🎲 2  ·  🎲 3  ·  🎲 ~~1~~  ·  🎲 2   →   7
 ```
 
-Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras.
+Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras, et le
+total arrive après la flèche. Le 🎲 devient l'icône du dé concerné dès que tu
+as téléversé les émojis — voir plus bas.
 
 > **L'argument s'appelle `jet` et ne peut pas être anonyme.** Discord impose un
 > nom à chaque option et l'affiche dans la barre de saisie. Testé le 26 août
@@ -139,13 +142,28 @@ Le bot cherche les émojis **par nom**, jamais par identifiant : rien à
 configurer, et s'ils ne sont pas là il reprend le 🎲 sans que personne ne s'en
 aperçoive.
 
-**Tous les dés sont acceptés, y compris ceux qui n'existent pas.** `/d 1d27`
-marche ; faute d'image, il affiche le 🎲 et rappelle la notation en fin de
-ligne, pour qu'on sache ce qui a été lancé :
+**Tous les dés sont acceptés, même ceux qui n'existent pas** — et le bot leur
+compose une icône **en additionnant les dés qu'il a** :
 
 ```
-/d 3d27        →  🎲 6  ·  🎲 24  ·  🎲 4   →   34  ·  `3d27`
+/d 1d26        →  [d20][d6] 7          26 = 20 + 6
+/d 1d8         →  [d6][d2] 4           8 = 6 + 2
+/d 1d30        →  [d20][d10] 28        30 = 20 + 10
+/d 1d14        →  [d12][d2] 7          14 = 12 + 2
 ```
+
+La somme doit tomber juste — une approximation mentirait sur ce qui a été
+lancé — et s'arrête à trois icônes, au-delà desquelles elle ne se lit plus.
+
+**Quand la somme est impossible, c'est le `d6` qui prend le relais** — un vrai
+dé plutôt qu'un pictogramme dépareillé. Ça concerne d'abord les dés impairs, et
+c'est une impossibilité arithmétique, pas un oubli : les six dés illustrés ont
+tous un nombre pair de faces, donc leur somme est toujours paire. `d3`, `d5`,
+`d7`, `d27` ne peuvent pas être composés. Ça concerne aussi les très grands,
+comme `d1000`.
+
+À assumer : un `d27` ressemblera donc à un `d6`. Le nombre affiché lève
+l'ambiguïté, mais l'icône, non.
 
 **Au-delà de douze dés**, le détail passe en forme compacte, précédé de
 l'émoji `Power` s'il existe sur le serveur. Ce n'est pas de la coquetterie :
@@ -159,9 +177,9 @@ message Discord.
 
 Le `d100` n'a volontairement pas d'image : il n'existe aucune icône de
 percentile, et le bot montre donc **deux d10**, ce qu'on lance vraiment sur une
-table. Le d8 manque aussi, game-icons.net refusant de le servir en fond
-transparent. Le détail, la marche à suivre et la licence sont dans
-`assets/emoji/LISEZ-MOI.txt`.
+table. Le d8 n'a pas la sienne non plus — game-icons.net refuse de la servir en
+fond transparent — mais il se compose tout seul en `d6 + d2`. Le détail, la
+marche à suivre et la licence sont dans `assets/emoji/LISEZ-MOI.txt`.
 
 Le tirage utilise `crypto.randomBytes` avec rejet des valeurs biaisées, pas
 `Math.random`. C'est gratuit et ça évite les discussions à la table. Bornes : 100
