@@ -126,16 +126,27 @@ retombe sur le 🎲 sans un mot.
 
 **L'émoji désigne le dé lancé, pas le résultat.** Première version : une image
 par face de d6 (`d6_1`… `d6_6`). Ilphrinn voulait en fait le jeu classique — un
-dé par type, `d2 d4 d6 d10 d12 d20 d100`. C'est mieux : ça vaut pour `3d6`
-comme pour `1d6`. La règle exige que tout le jet porte sur un seul type, sinon
+dé par type, `d2 d4 d6 d10 d12 d20`. C'est mieux : ça vaut pour `3d6` comme
+pour `1d6`. La règle exige que tout le jet porte sur un seul type, sinon
 l'image mentirait sur ce qui a été lancé.
 
-Deux compromis assumés, tous deux écrits dans `assets/emoji/LISEZ-MOI.txt` :
-le `d100` porte l'image du `d10` (un percentile se lance avec des d10 ; il
-n'existe pas d'icône de dé à cent faces), et **le d8 manque** —
-game-icons.net renvoie un 403 constant sur ce seul icône en fond transparent,
-alors que ses voisins passent, et sert du HTML à la place du PNG. Vérifie les
-octets d'en-tête avant de croire un téléchargement.
+**Le d100 n'a pas d'image, et il ne faut pas lui en inventer une.** J'avais
+d'abord recyclé celle du d10 ; Ilphrinn a eu raison de le refuser, c'était du
+bricolage déguisé en décision. Il n'existe aucune icône de percentile — vérifié
+sur le site *et* dans le dépôt amont `game-icons/icons`, pour les trois auteurs.
+Le bot affiche donc **deux fois l'émoji du d10**, ce qu'on lance réellement.
+Aucun fichier de plus, et c'est plus juste qu'une approximation.
+
+Ne tente pas de composer une image toi-même : ces PNG sont en palette **et
+entrelacés (Adam7)**, donc les décoder demande bien plus que `zlib.inflate`, et
+il n'y a aucun outil de retouche sur cette machine — `convert` est le
+convertisseur de volumes de Windows, pas ImageMagick.
+
+**Le d8 manque.** game-icons.net renvoie un 403 constant sur ce seul icône en
+fond transparent, alors que ses voisins passent, et sert du HTML à la place du
+PNG. Le fichier a été rejeté sur sa signature, pas sur sa taille : **vérifie les
+octets d'en-tête avant de croire un téléchargement.** Le SVG existe pourtant
+dans le dépôt amont — c'est bien un défaut de leur générateur.
 
 Images de Delapouite et Skoll via game-icons.net, CC BY 3.0 : l'attribution est
 due, ne supprime pas le `LISEZ-MOI.txt`. Elles sont blanches sur transparent :

@@ -46,15 +46,25 @@ function emoji(guilde, nom) {
 // Les des du jeu de role classique, ceux pour lesquels une image existe dans
 // assets/emoji/. Le d8 manque : game-icons.net ne le sert pas en fond
 // transparent (403 constant, verifie le 26 aout 2026).
-const TYPES = new Set([2, 4, 6, 10, 12, 20, 100]);
+const TYPES = new Set([2, 4, 6, 10, 12, 20]);
 
 // L emoji designe le DE LANCE, pas le resultat : il vaut donc pour « 3d6 »
 // comme pour « 1d6 ». Il faut en revanche que tout le jet porte sur le meme
 // type, sinon l image mentirait sur ce qui a ete lance.
 function des(interaction, r) {
   const faces = r.jets[0]?.faces;
-  if (!faces || !TYPES.has(faces)) return null;
-  if (!r.jets.every((j) => j.faces === faces)) return null;
+  if (!faces || !r.jets.every((j) => j.faces === faces)) return null;
+
+  // Le percentile n a pas d icone — ni sur game-icons.net, ni dans son depot
+  // amont, verifie. Plutot qu une image approximative, on montre ce qu on
+  // lance reellement : deux d10. C est aussi ce que tout le monde a sur sa
+  // table.
+  if (faces === 100) {
+    const d10 = emoji(interaction.guild, 'd10');
+    return d10 && d10 + d10;
+  }
+
+  if (!TYPES.has(faces)) return null;
   return emoji(interaction.guild, `d${faces}`);
 }
 

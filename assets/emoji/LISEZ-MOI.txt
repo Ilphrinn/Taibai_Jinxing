@@ -1,9 +1,9 @@
 Émojis de dés — à téléverser sur le serveur Discord
 ===================================================
 
-Un dé par type, celui du jeu de rôle classique. Le bot ne les cherche PAS par
-identifiant mais par NOM : garde exactement les noms de fichiers en les
-téléversant, sinon il retombera silencieusement sur le 🎲 habituel.
+Un dé par type. Le bot ne les cherche PAS par identifiant mais par NOM : garde
+exactement les noms de fichiers en les téléversant, sinon il retombera
+silencieusement sur le 🎲 habituel.
 
     d2      un jeton — il n'existe pas de dé à deux faces, on lance une pièce
     d4      le tétraèdre
@@ -11,26 +11,32 @@ téléversant, sinon il retombera silencieusement sur le 🎲 habituel.
     d10     le dé à dix faces
     d12     le dodécaèdre
     d20     l'icosaèdre
-    d100    la même image que le d10 : le percentile SE LANCE avec des d10,
-            il n'existe pas d'icône propre — voir plus bas
 
-Le d8 manque. game-icons.net refuse de le servir en fond transparent (erreur
-403 constante, vérifié le 26 août 2026) alors que ses voisins passent. C'est un
-défaut de leur côté, pas une omission. Si tu en as besoin, réessaie l'adresse :
+Six images, et deux absences assumées.
+
+**Le d100 n'a pas d'image, et c'est voulu.** Il n'existe aucune icône de
+percentile — ni sur game-icons.net, ni dans son dépôt amont, vérifié. Plutôt
+qu'une image approximative, le bot affiche **deux fois l'émoji du d10**, ce qui
+est exactement ce qu'on lance sur une vraie table. Rien à téléverser de plus.
+
+**Le d8 manque.** game-icons.net renvoie une erreur 403 constante sur ce seul
+icône en fond transparent, alors que ses voisins passent, et sert une page HTML
+à la place du PNG. C'est un défaut de leur côté. Si tu en as besoin, réessaie :
 
     https://game-icons.net/icons/ffffff/transparent/1x1/delapouite/dice-eight-faces-eight.png
 
-et nomme le fichier d8.png — le bot le prendra sans qu'on touche au code.
+et nomme le fichier d8.png — mais il faudra aussi ajouter 8 à la liste TYPES
+dans src/lib/commande-des.js, sinon le bot ne le cherchera pas.
 
 
 Comment les téléverser
 ----------------------
 
-Paramètres du serveur → Émojis → Importer. Tu peux sélectionner les sept d'un
+Paramètres du serveur → Émojis → Importer. Tu peux sélectionner les six d'un
 coup ; Discord reprend le nom du fichier. Vérifie ensuite qu'il n'a pas ajouté
 de suffixe (« d6_1 ») s'il existait déjà un émoji du même nom.
 
-Un serveur non boosté accepte 50 émojis : sept ne mangent pas grand-chose.
+Un serveur non boosté accepte 50 émojis : six ne mangent pas grand-chose.
 
 
 Quand le bot s'en sert
@@ -42,22 +48,16 @@ jets portant sur un seul type de dé :
     /d 20        →  [d20] 14
     /d 3d6       →  [d6] 11  ·  3d6 [4, 5, 2]
     /d 2d6+3     →  [d6] 12  ·  2d6 [4, 5] +3
-    /r 1d100     →  [d100] 73
+    /r 1d100     →  [d10][d10] 73
 
 Sur un jet mélangeant deux types (1d6+1d8), ou sur un dé qui n'a pas d'image
 (1d7, 1d30), il reprend le 🎲 générique : mieux vaut rien qu'une image fausse.
 
 
-Deux défauts à connaître
-------------------------
+Un défaut à connaître
+---------------------
 
-**Le d100 porte l'image du d10.** C'est volontaire et ce n'est pas un raccourci
-paresseux : un percentile se lance avec des dés à dix faces, il n'existe pas de
-dé à cent faces courant. L'émoji est distinct (nom `d100`), seule l'image est
-partagée. Si ça te gêne, remplace `d100.png` par ce que tu veux, le bot ne
-regarde que le nom.
-
-**Les images sont blanches sur fond transparent.** Elles ressortent bien sur le
+Les images sont **blanches sur fond transparent**. Elles ressortent bien sur le
 thème sombre de Discord, qui est celui par défaut ; sur le thème clair, elles
 seront à peine visibles. La variante noire tient à un morceau d'adresse :
 
@@ -82,6 +82,6 @@ Noms d'origine :
     delapouite/token                      →  d2
     skoll/d4                              →  d4
     delapouite/dice-six-faces-six         →  d6
-    skoll/d10                             →  d10  et  d100
+    skoll/d10                             →  d10
     skoll/d12                             →  d12
     delapouite/dice-twenty-faces-twenty   →  d20
