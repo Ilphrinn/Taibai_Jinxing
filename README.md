@@ -196,50 +196,132 @@ dés au plus, de 2 à 1000 faces.
 `/musique` rejoint ton salon vocal et poste **un panneau**. Ensuite, tout se fait
 aux boutons : plus rien à retaper.
 
+```
+太白金星 — Ambiances                        ┌────────┐
+                                            │pochette│
+▶️  Pluie sur le toit                       └────────┘
+🏮 Ambiance · Chenlin · piste 2 sur 7
+
+▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱  1:42 / 3:57
+
+Volume               Boucle          En file
+▰▰▱▱▱▱▱▱▱▱ 35 %      🔁 Liste        5
+
+À suivre
+1. Auberge au crépuscule
+2. Le pont de pierre
+… et 3 autres
+
+Ambiance · Chenlin · pistes 1–25 sur 41 · page 1/2
+─────────────────────────────────────────────────────
+[ Où sommes-nous ?                                   ▾ ]
+[ Une piste précise — page 1 sur 2                   ▾ ]
+[ 🎐 Ambiance ] [ ◀ ] [ ▶ ] [ 🎶 Tout jouer ]
+[ ⏸ ] [ ⏭ ] [ 🔉 ] [ 🔊 ] [ 🔁 ]
+[ 🔀 Mélanger ]  [ ⏹ Arrêter et quitter ]
+```
+
+**La navigation, c'est les deux menus et les quatre boutons du haut.** Choisir un
+lieu ne joue rien : ça déplace le regard. Rien de tout ça n'exige d'être en
+vocal — on regarde ce qu'on a, et le bot ne vient que quand on lance une piste.
+
 | Élément | Effet |
 |---|---|
-| Menu « Une ambiance » | joue tout un dossier, mélangé, en boucle |
+| 🎐 **Ambiance** | passe à la majeure suivante — ambiance, combat, et retour |
+| Menu « Où sommes-nous ? » | change de lieu : *tous les lieux*, *Partout*, ou une région |
+| ◀ / ▶ | page précédente, suivante — vingt-cinq pistes par page |
+| 🎶 **Tout jouer** | joue la sélection affichée, mélangée, en boucle |
 | Menu « Une piste précise » | glisse une piste devant tout le reste |
 | ⏸ / ▶ | suspendre, reprendre |
 | ⏭ | piste suivante |
 | 🔉 / 🔊 | volume par pas de 10 % |
 | 🔁 | boucle : aucune → piste → liste |
+| 🔀 **Mélanger** | rebat la file d'attente |
 | ⏹ **Arrêter et quitter** | silence, et le bot sort du salon |
 
-Le panneau se met à jour tout seul quand une piste s'enchaîne ou quand le bot se
-retire — pas seulement quand on clique.
+Le pied de l'encart dit toujours où l'on en est : la majeure, le lieu, et la
+tranche de pistes affichée.
 
-Il faut être dans un salon vocal pour ouvrir le panneau. Le bot quitte après cinq
-minutes de silence, et immédiatement si plus personne n'écoute
-(`INACTIVITE_MINUTES` dans `.env`).
+Cinq rangées, c'est le plafond de Discord : **le panneau est plein**. Une
+fonction de plus devra prendre la place d'une autre.
+
+**La barre de progression avance toute seule**, toutes les dix secondes —
+`PANNEAU_SECONDES` dans `.env`, `0` pour la figer. Le panneau se met aussi à jour
+quand une piste s'enchaîne, quand le salon se vide et quand le bot se retire.
+
+Quatre états, et le panneau ne dit que la vérité : **en lecture**, **en pause**,
+**en veille** quand plus personne n'est là pour écouter — Discord met alors le
+lecteur en sommeil tout seul — et rien en cours. La couleur de l'encart suit :
+jade, or, encre.
+
+Si la durée d'un fichier ne se lit pas, le panneau affiche le temps écoulé sans
+barre plutôt que d'inventer une position.
+
+Il faut être dans un salon vocal pour ouvrir le panneau. Relancer `/musique` dans
+le même salon réutilise le panneau déjà posé au lieu d'en empiler un second. Le
+bot quitte après cinq minutes de silence, et immédiatement si plus personne
+n'écoute (`INACTIVITE_MINUTES` dans `.env`).
+
+#### Illustrer les ambiances
+
+Deux façons, toutes deux facultatives et sans rien à configurer :
+
+- **Une pochette** : dépose un `pochette.png` (ou `.jpg`, `.webp`) dans le dossier
+  d'un lieu, et il s'affiche en vignette pour toutes ses pistes. Une image portant
+  le nom exact d'une piste — `pluie-sur-le-toit.jpg` à côté de
+  `pluie-sur-le-toit.ogg` — l'emporte pour cette piste-là. À défaut, le bot
+  remonte les dossiers : le lieu, puis la majeure, puis la racine de
+  `assets/musique/`. Une image par région suffit donc.
+- **Un émoji de lieu** : téléverse sur ton serveur un émoji portant le nom du
+  dossier — `chenlin`, `heibing`, `combat` — et il apparaît à côté du lieu dans
+  le menu et sous le titre de la piste. Même convention que les dés : la recherche
+  se fait **par nom**, et l'absence ne dérange rien.
+
+Contrairement aux fichiers audio, les images ne sont pas exclues par le
+`.gitignore` : elles partent dans le dépôt et arrivent jusqu'à l'hébergeur toutes
+seules.
 
 ---
 
 ## 4. Les musiques
 
-Range tes fichiers en sous-dossiers, un par ambiance :
+Deux niveaux : la **majeure**, puis le **lieu**.
 
 ```
 assets/musique/
-    ambiance/   auberge.mp3, pluie-sur-le-toit.mp3
-    combat/     duel-au-sabre.mp3
-    rituel/     temple.mp3
+    ambiance/
+        tambours-lointains.ogg      ← à la racine : « Partout »
+        chenlin/    bambous.ogg, pochette.png
+        heibing/    neige.ogg
+    combat/
+        chenlin/           duel-au-sabre.ogg
+        portes-de-l-enfer/ poursuite.ogg
 ```
 
-Le dossier devient l'ambiance proposée dans le menu, le nom du fichier devient le
-titre affiché.
+Le dossier de tête est la catégorie majeure — `ambiance` ou `combat`. Le
+sous-dossier est le lieu, nommé par son **slug sans accent** (`vallee-fantome`) :
+le nom accentué et l'ordre des régions vivent dans
+[`src/lib/lieux.js`](src/lib/lieux.js), et c'est ce nom-là qui s'affiche. Un
+fichier posé directement dans une majeure vaut « Partout ». Le nom du fichier
+devient le titre affiché.
+
+Les dix-huit dossiers de lieu sont déjà là, vides. **Un lieu sans piste
+n'apparaît pas dans le menu** : tu peux tous les laisser en place. Un dossier
+absent de la table marche aussi — il s'affiche sous son nom, en fin de liste.
+
+La liste complète des slugs est dans
+[`assets/musique/LISEZ-MOI.txt`](assets/musique/LISEZ-MOI.txt).
 
 Formats lus : mp3, ogg, opus, wav, flac, m4a, aac, webm. **Encode en Opus 96 kbps
 mono** : Discord réencode tout en Opus 48 kHz de toute façon, et tu diviseras la
 taille de ton dossier par cinq sans rien perdre à l'oreille.
 
 ```bash
-ffmpeg -i source.flac -c:a libopus -b:a 96k -ac 1 assets/musique/ambiance/sortie.ogg
+ffmpeg -i source.flac -c:a libopus -b:a 96k -ac 1 assets/musique/ambiance/chenlin/sortie.ogg
 ```
 
-> Les menus de Discord plafonnent à 25 entrées. Au-delà de 25 pistes, le menu
-> « Une piste précise » n'en montre que 25 — passe par les ambiances, qui jouent
-> le dossier entier.
+> Les menus de Discord plafonnent à 25 entrées : c'est la taille d'une page. Au-delà,
+> les boutons ◀ et ▶ font défiler, et le pied de l'encart dit où l'on en est.
 
 ---
 
@@ -324,6 +406,7 @@ pour transporter des fichiers audio à chaque déploiement :
 | Tout retirer | `npm run commandes:purge` |
 | Le bot ne parle pas dans le salon vocal | vérifie « Se connecter » et « Parler » **sur le salon**, pas seulement sur le serveur |
 | Un bouton ne répond plus | le panneau d'une session terminée est inerte : relance `/musique` |
+| La barre de progression ne bouge pas | durée du fichier illisible, ou `PANNEAU_SECONDES=0`. `npm run verif` sonde une piste et le dit. |
 | Vérifier la chaîne audio | `npm run verif` — liste l'encodeur Opus, le chiffrement et ffmpeg |
 | Voir ce qui se passe | `LOG_LEVEL=debug` dans `.env` |
 
@@ -335,7 +418,9 @@ pour transporter des fichiers audio à chaque déploiement :
   coupe la musique. Il faudrait mémoriser le salon et la piste quelque part.
 - **Fondu enchaîné** entre deux ambiances. Faisable, mais il faut deux lecteurs et
   un mélange — plus de code qu'il n'y paraît.
-- **Plus de 25 pistes au menu** : il faudrait paginer, ou un champ de recherche.
+- **Une recherche par texte** dans la bibliothèque. La navigation par lieu suffit
+  tant qu'un lieu ne déborde pas ; au-delà, il faudrait une fenêtre de saisie — et
+  le panneau n'a plus une rangée de libre.
 
 ---
 
@@ -357,6 +442,10 @@ src/
         des.js            analyse et lancer, tirage non biaisé
         commande-des.js   le cœur commun à /d et /r
         musique.js        bibliothèque, file d'attente, session vocale par serveur
+        lieux.js          les dix-huit lieux : nom affiché, glose, ordre
+        navigation.js     où en est le panneau : majeure, lieu, page
+        panneau.js        le dessin du panneau : jauges, pochettes, boutons
+        duree.js          durée d'un fichier audio, sondée par ffmpeg
         couleurs.js       la palette
         permissions.js    la liste qui produit le lien d'invitation
 ```

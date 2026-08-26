@@ -8,6 +8,8 @@ import {
 } from '@discordjs/voice';
 import ffmpeg from 'ffmpeg-static';
 import { config } from '../config.js';
+import { duree } from './duree.js';
+import { comparerLieu, comparerMajeure, lieuConnu, nomLieu, SANS_LIEU } from './lieux.js';
 import { log } from '../logger.js';
 
 // prism-media cherche ffmpeg dans FFMPEG_PATH en priorite.
@@ -21,21 +23,36 @@ export const MODES_BOUCLE = ['aucune', 'piste', 'liste'];
 let cache = { pistes: [], date: 0 };
 const DUREE_CACHE = 30_000;
 
-function parcourir(dossier, categorie, sortie) {
+function parcourir(dossier, sortie) {
   let entrees;
   try { entrees = fs.readdirSync(dossier, { withFileTypes: true }); }
   catch { return; }
   for (const e of entrees) {
     const complet = path.join(dossier, e.name);
     if (e.isDirectory()) {
-      parcourir(complet, categorie ?? e.name, sortie);
+      parcourir(complet, sortie);
     } else if (EXTENSIONS.has(path.extname(e.name).toLowerCase())) {
+      const id = path.relative(config.dossierMusique, complet).replace(/\\/g, '/');
+      const segments = id.split('/');
+
+      // Deux paliers, et le rangement se lit dans le chemin plutot que de
+      // s heriter du dossier de tete : le premier segment est la majeure
+      // (ambiance, combat), le deuxieme le lieu. Une piste posee a la racine
+      // d une majeure n a pas de lieu — elle vaut « Partout ». Plus profond,
+      // elle reste rattachee a son lieu : il n y a pas de troisieme palier.
+      const majeure = segments.length > 1 ? segments[0] : 'divers';
+      const lieu = segments.length > 2 ? segments[1] : null;
+
       sortie.push({
         titre: path.basename(e.name, path.extname(e.name)).replace(/[_-]+/g, ' ').trim(),
         fichier: e.name,
-        categorie: categorie ?? 'divers',
+        majeure,
+        lieu,
+        // Ancien nom du dossier de tete. Garde parce que la recherche d emoji
+        // et l affichage s en servent encore.
+        categorie: majeure,
         chemin: complet,
-        id: path.relative(config.dossierMusique, complet).replace(/\\/g, '/'),
+        id,
       });
     }
   }
@@ -44,39 +61,41 @@ function parcourir(dossier, categorie, sortie) {
 export function bibliotheque({ forcer = false } = {}) {
   if (!forcer && Date.now() - cache.date < DUREE_CACHE) return cache.pistes;
   const pistes = [];
-  parcourir(config.dossierMusique, null, pistes);
-  pistes.sort((a, b) => a.categorie.localeCompare(b.categorie) || a.titre.localeCompare(b.titre));
+  parcourir(config.dossierMusique, pistes);
+  pistes.sort((a, b) =>
+    comparerMajeure(a.majeure, b.majeure)
+    || comparerLieu(a.lieu, b.lieu)
+    || a.titre.localeCompare(b.titre));
   cache = { pistes, date: Date.now() };
   return pistes;
 }
 
-const sansAccent = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-
-/** Recherche souple : identifiant exact, puis sous-chaine sur titre / categorie. */
-export function rechercher(requete, { limite = 25 } = {}) {
-  const pistes = bibliotheque();
-  if (!requete) return pistes.slice(0, limite);
-  const q = sansAccent(requete.trim());
-  const exact = pistes.find((p) => p.id.toLowerCase() === requete.trim().toLowerCase());
-  if (exact) return [exact];
-  const score = (p) => {
-    const t = sansAccent(p.titre), c = sansAccent(p.categorie);
-    if (t === q) return 0;
-    if (t.startsWith(q)) return 1;
-    if (t.includes(q)) return 2;
-    if (c.includes(q)) return 3;
-    return 99;
-  };
-  return pistes
-    .map((p) => ({ p, s: score(p) }))
-    .filter((x) => x.s < 99)
-    .sort((a, b) => a.s - b.s || a.p.titre.localeCompare(b.p.titre))
-    .slice(0, limite)
-    .map((x) => x.p);
+/** Les dossiers de tete qui contiennent vraiment quelque chose. */
+export function majeures() {
+  return [...new Set(bibliotheque().map((p) => p.majeure))].sort(comparerMajeure);
 }
 
-export function categories() {
-  return [...new Set(bibliotheque().map((p) => p.categorie))].sort();
+/**
+ * Les lieux peuples d une majeure, dans l ordre de la table, precedes du bac
+ * « Partout » s il n est pas vide. Un lieu sans piste n apparait pas : les
+ * dossiers vides de l arborescence n encombrent donc pas le menu.
+ */
+export function lieux(majeure) {
+  const compte = new Map();
+  for (const p of bibliotheque()) {
+    if (p.majeure !== majeure) continue;
+    compte.set(p.lieu, (compte.get(p.lieu) ?? 0) + 1);
+  }
+  return [...compte.keys()].sort(comparerLieu).map((slug) => {
+    const connu = lieuConnu(slug);
+    return {
+      slug,
+      nom: nomLieu(slug),
+      glose: slug ? connu?.glose ?? null : SANS_LIEU.glose,
+      propose: Boolean(connu?.propose),
+      nombre: compte.get(slug),
+    };
+  });
 }
 
 // --- Sessions ------------------------------------------------------------
@@ -94,6 +113,11 @@ class Session {
     this.boucle = 'aucune';
     this.minuterie = null;
     this.ressource = null;
+
+    // De quoi ecrire « piste 2 sur 7 » : la file est consommee par shift(),
+    // donc son seul comptage ne dit pas ou l on en est.
+    this.rang = 0;
+    this.total = 0;
 
     // Le panneau de /musique s accroche ici : la session previent quand son
     // etat change de lui-meme (fin de piste, retrait pour inactivite), sinon
@@ -114,6 +138,17 @@ class Session {
     this.connexion.subscribe(this.lecteur);
 
     this.lecteur.on(AudioPlayerStatus.Idle, () => this.#surFin());
+
+    // Le panneau doit suivre les changements d etat qui ne viennent pas d un
+    // clic : mise en veille quand le salon se vide, reprise quand quelqu un
+    // revient. On ne previent que pour la pause et la veille — le demarrage
+    // d une piste est deja annonce par #jouerSuivante(), et la fin par #surFin().
+    const VEILLE = new Set([AudioPlayerStatus.Paused, AudioPlayerStatus.AutoPaused]);
+    this.lecteur.on('stateChange', (avant, apres) => {
+      if (avant.status === apres.status) return;
+      if (VEILLE.has(apres.status) || VEILLE.has(avant.status)) this.surChangement?.();
+    });
+
     this.lecteur.on('error', (err) => {
       log.error(`Lecture de ${this.courante?.titre} :`, err.message);
       this.salonTexte?.send(`⚠️ Lecture interrompue : ${this.courante?.titre ?? 'piste inconnue'}`)
@@ -141,6 +176,14 @@ class Session {
 
   ajouter(pistes) {
     this.file.push(...pistes);
+    this.total += pistes.length;
+    return this.file.length;
+  }
+
+  /** Glisse une piste devant tout le reste. */
+  prioriser(piste) {
+    this.file.unshift(piste);
+    this.total += 1;
     return this.file.length;
   }
 
@@ -159,6 +202,9 @@ class Session {
       return null;
     }
     this.courante = piste;
+    // En boucle sur la liste, les pistes reviennent : le rang repart a 1.
+    this.rang = this.total && this.rang >= this.total ? 1 : this.rang + 1;
+
     this.ressource = createAudioResource(piste.chemin, {
       inputType: StreamType.Arbitrary,
       inlineVolume: true,
@@ -167,6 +213,18 @@ class Session {
     this.ressource.volume?.setVolume(this.volume);
     this.lecteur.play(this.ressource);
     log.info(`[${this.guildeId}] lecture : ${piste.id}`);
+
+    // La duree se sonde en tache de fond : la lecture n a pas a attendre
+    // ffmpeg, et une duree inconnue n empeche rien. Le panneau se redessine
+    // quand elle arrive, pour faire apparaitre la barre de progression.
+    if (!piste.duree) {
+      duree(piste.chemin).then((ms) => {
+        if (!ms) return;
+        piste.duree = ms;
+        if (this.courante === piste) this.surChangement?.();
+      }).catch(() => { /* une duree inconnue n est pas une erreur */ });
+    }
+
     this.surChangement?.();
     return piste;
   }
@@ -209,7 +267,13 @@ class Session {
     return this.file.length;
   }
 
-  vider() { const n = this.file.length; this.file = []; return n; }
+  vider() {
+    const n = this.file.length;
+    this.file = [];
+    this.rang = 0;
+    this.total = 0;
+    return n;
+  }
 
   stop() {
     this.vider();
@@ -220,6 +284,9 @@ class Session {
   }
 
   get statut() { return this.lecteur.state.status; }
+
+  /** Millisecondes de son deja jouees : n avance pas pendant une pause. */
+  get position() { return this.ressource?.playbackDuration ?? 0; }
 
   #armerMinuterie() {
     this.#annulerMinuterie();

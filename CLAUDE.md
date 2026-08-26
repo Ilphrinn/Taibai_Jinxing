@@ -13,6 +13,13 @@ servir. Lis les deux avant de toucher quoi que ce soit.
 
 **Vérifié :** `npm run verif` passe (2 commandes, 8 permissions, chaîne audio
 complète). Le moteur de dés est testé sur toute la notation, raccourci compris.
+Depuis le 26 août au soir, `verif` dessine aussi le panneau de `/musique` sur
+huit fausses sessions — dont trois de navigation —, vérifie les limites de Discord
+et **imprime l'aperçu en texte** : les jauges, l'arbre des lieux, les libellés de
+la rangée de navigation et ce qui y est grisé. C'est le seul moyen de voir tout
+ça sans connexion. Exercé le 26 août sur une bibliothèque fabriquée de 36 pistes :
+deux majeures, quatre lieux, pagination à deux pages, lieu inconnu rangé en fin de
+liste — tout se tient.
 Lancé avec un jeton bidon, `src/index.js` va jusqu'à `TokenInvalid` — ce qui prouve
 tout le chemin de démarrage sauf la connexion elle-même.
 
@@ -90,6 +97,89 @@ qui veut des boutons exporte `composant` et préfixe ses `custom_id`, c'est tout
 le panneau mentirait dès qu'une piste s'enchaîne toute seule. Pendant le traitement
 d'un clic, on met `panneau` à `null` pour que l'affichage soit fait une seule fois,
 par la réponse à l'interaction — puis on raccroche.
+
+**Le panneau est un message de salon, pas une réponse d'interaction.** C'était
+`interaction.fetchReply()` ; ce message appartient au jeton de l'interaction, qui
+**expire au bout de quinze minutes**. Passé ce délai chaque `edit()` échouait,
+`surChangement` mettait `panneau` à `null`, et le panneau se figeait sans un mot —
+panne invisible tant que rien ne se rafraîchissait tout seul, et criante dès qu'une
+barre de progression avance toutes les dix secondes. `execute()` répond donc en
+éphémère et poste le panneau avec `channel.send()`. **N'y reviens pas** : ce n'est
+pas une préférence de mise en page, c'est la seule forme qui vit une séance entière.
+Relancer `/musique` dans le même salon réutilise le panneau posé plutôt que d'en
+empiler un deuxième.
+
+**L'affichage graphique se dessine en caractères, délibérément.** Barre de
+progression et jauge de volume en `▰▱`, dans `lib/panneau.js`. Deux voies écartées
+en connaissance de cause : les **Composants V2** (voir plus bas, la raison n'a pas
+changé), et une **image PNG** dessinée à la volée — il faudrait une bibliothèque
+graphique native, et surtout re-téléverser le fichier à chaque rafraîchissement,
+six fois par minute. Les caractères coûtent une édition de message, rien de plus.
+
+**Le rangement se lit dans le chemin, il ne s'hérite plus.** `parcourir()`
+héritait la catégorie du dossier de tête (`categorie ?? e.name`), ce qui aplatissait
+tout : `ambiance/chenlin/x.ogg` ressortait en `ambiance`, le lieu perdu. Le
+découpage se fait maintenant sur l'`id` — premier segment la **majeure**, deuxième
+le **lieu**, `null` pour une piste posée à la racine d'une majeure (« Partout »).
+**Deux paliers, pas trois** : plus profond, la piste reste rattachée à son lieu.
+`categorie` reste égal à `majeure`, uniquement parce que la recherche d'émoji s'en
+sert encore ; ne t'appuie pas dessus pour du neuf.
+
+**Les lieux sont des slugs sur le disque, et une table dans le code.**
+`src/lib/lieux.js` tient nom affiché, glose, ordre et le drapeau « proposé ».
+Deux raisons, toutes deux mesurées : un tri alphabétique perdrait la numérotation
+des douze régions, et un dossier nommé `Portes de l'Enfer` traverserait git,
+Docker et Railway sans qu'on ait pu le vérifier. **En `lib/`, pas en `data/`** — un
+motif d'ignore non ancré a déjà fait disparaître `src/data/` en silence. Un dossier
+absent de la table n'est pas une erreur : il s'affiche sous son slug, en fin de
+liste. Ajouter une région, c'est une ligne et un dossier.
+
+**La vue du navigateur ne peut pas vivre dans la session.** `lib/navigation.js`
+tient `{ majeure, lieu, page }` dans une `Map` de module, clé `guildeId` — même
+patron que la mémoire des pochettes. Deux raisons : on doit pouvoir feuilleter la
+bibliothèque **sans être en vocal**, et la session est détruite dès que le salon se
+vide, ce qui effacerait la vue à chaque silence. `selection()` corrige au passage
+une vue devenue fausse (majeure disparue, lieu vidé, page au-delà du dernier écran)
+— c'est le seul endroit qui connaisse la taille d'une page. Un redémarrage la vide
+et le panneau repart en haut : assumé, un redéploiement coupe déjà la musique.
+
+**Le bouton de majeure tourne, il n'y en a pas deux.** Comme celui de la boucle. Un
+troisième dossier de tête reste ainsi atteignable sans nouveau bouton — et surtout
+**les cinq rangées sont pleines** : deux menus, navigation, transport, bas. C'est
+le plafond de Discord. Toute fonction de plus devra en déloger une autre ; c'est ce
+qui interdit aujourd'hui un bouton de recherche.
+
+**Choisir un lieu ne joue rien.** `lieu`, `majeure`, `page-` et `page+` ne
+demandent ni session ni salon vocal : c'est tout l'intérêt d'un navigateur. Seules
+`jouer` et `piste` appellent `rejoindre()`. Ne les rajoute pas au lot qui exige une
+session — l'erreur « Je ne joue rien pour le moment » serait un contresens sur un
+clic de navigation.
+
+**La durée se sonde avec `ffmpeg -i`, pas avec `ffprobe`.** `ffmpeg-static` ne
+livre que le binaire `ffmpeg`, et le Dockerfile n'installe que le paquet `ffmpeg` :
+`ffprobe` marcherait sur cette machine et nulle part ailleurs. `ffmpeg -i <fichier>`
+sans sortie échoue, mais il a déjà imprimé `Duration:` sur stderr — c'est ce qu'on
+lit (`lib/duree.js`). Vérifié le 26 août sur `cloche-longue.ogg` : 45 010 ms.
+Cache par `chemin + mtime`, sonde asynchrone lancée **sans être attendue** : la
+lecture ne doit jamais dépendre d'un `spawn`. Durée illisible ⇒ `null`, et le
+panneau montre le temps écoulé sans barre. **Une durée inconnue n'est pas une
+erreur** — ne la transforme pas en message d'avertissement.
+
+**La pochette n'est renvoyée qu'au changement.** Une édition de message qui ne
+parle ni de `files` ni de `attachments` conserve la pièce jointe déjà en place :
+c'est ce qui permet de faire avancer la barre sans re-téléverser l'image. Une Map
+`guildeId → chemin affiché` dans `lib/panneau.js` tient cette mémoire, et
+`oublierPochette()` la vide quand on poste un panneau neuf. Si tu touches au
+rendu, garde cette distinction — sinon l'image repart toutes les dix secondes.
+
+**Le panneau ne ment pas sur l'état du lecteur.** `NoSubscriberBehavior.Pause`
+met le lecteur en `AutoPaused` quand le salon se vide : l'afficher comme une pause
+volontaire ferait chercher qui a cliqué. D'où quatre états distincts, dont « en
+veille — personne n'écoute ».
+
+**La minuterie du panneau ne réédite que si quelque chose a bougé.** Pas en
+lecture, ou durée inconnue : on ne dépense pas de requête. Dix secondes par défaut
+(`PANNEAU_SECONDES`) ; en dessous de cinq, Discord finit par limiter les éditions.
 
 **Les erreurs remontent.** Dans une commande, `throw new Error('phrase lisible en
 français')` : le gestionnaire d'`interactionCreate` dans `index.js` l'attrape et la
@@ -276,6 +366,12 @@ d'attente, volume, mode de boucle, minuterie d'inactivité, et le point d'accroc
 panneau. Une seule session par serveur — rejoindre un autre salon détruit la
 précédente. Le lecteur reçoit un chemin de fichier, ffmpeg fait le décodage ;
 `inlineVolume` permet de régler le volume à chaud, au prix d'un passage par du PCM.
+Il tient aussi la bibliothèque : `bibliotheque()` (cache de 30 s), `majeures()` et
+`lieux(majeure)` — ces deux-là ne rendent que ce qui contient au moins une piste.
+
+`lib/lieux.js` est la table des dix-huit lieux, `lib/navigation.js` la vue du
+panneau (majeure, lieu, page) et `lib/panneau.js` son dessin. Le sens de lecture :
+`panneau.js` appelle `selection()` et ne décide de rien lui-même.
 
 `npm run verif` est un diagnostic **hors ligne** : il pose un faux jeton, charge
 tout, valide les JSON de commandes, refait le chargement de libsodium et imprime le
@@ -295,11 +391,17 @@ autre application et n'apparaissent jamais.
   de base, donc ce serait un fichier ou une variable d'environnement.
 - **Le fondu enchaîné** entre deux ambiances : deux lecteurs et un mélange, plus de
   code qu'il n'y paraît.
-- **Les menus au-delà de 25 pistes.** Discord plafonne ; il faudrait paginer.
+- **La recherche par texte** dans la bibliothèque. `rechercher()` existait,
+  accent-insensible et déjà plafonnée à 25 ; elle était morte depuis l'élagage et
+  a été supprimée avec la navigation. Elle est dans l'historique git si le sujet
+  revient — mais il faudra libérer une rangée, ou passer par une fenêtre modale.
 - **Les Composants V2** (`ContainerBuilder` et compagnie, disponibles en 14.27).
   Le panneau est un embed classique avec des rangées de boutons — éprouvé et
   prévisible. On pourra passer aux Composants V2 quand le bot aura tourné pour de
-  vrai ; pas avant, parce qu'on ne peut pas en vérifier le rendu hors ligne.
+  vrai ; pas avant, parce qu'on ne peut pas en vérifier le rendu hors ligne. La
+  demande d'« affichage graphique » du 26 août a été tenue sans eux, en caractères
+  et en pochettes ; ils donneraient une plus belle mise en page, pas plus
+  d'information.
 - **Le lien avec `Besoin/DISCORD.md`** : il y décrit l'export de son historique
   Discord vers du JSON pour alimenter ses fiches. Il n'a rien demandé de tel —
   attends qu'il en parle.

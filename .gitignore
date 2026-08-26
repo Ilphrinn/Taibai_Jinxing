@@ -8,17 +8,16 @@ node_modules/
 npm-debug.log*
 
 
-# Fichiers audio : trop lourds pour git. Voir README, section 5, pour les
-# faire arriver jusqu au serveur. On exclut par extension, et non le dossier
-# entier, afin de conserver l arborescence des categories.
-assets/musique/**/*.mp3
-assets/musique/**/*.ogg
-assets/musique/**/*.opus
-assets/musique/**/*.wav
-assets/musique/**/*.flac
-assets/musique/**/*.m4a
-assets/musique/**/*.aac
-assets/musique/**/*.webm
+# Les fichiers audio sont SUIVIS, volontairement : le Dockerfile fait
+# « COPY assets ./assets », donc c est git qui les transporte jusqu a Railway.
+# Il n y a pas d autre route — Railway n offre ni gestionnaire de fichiers ni
+# FTP. Ajouter une musique est donc un commit, et un deploiement redemarre le
+# bot. Si la bibliotheque passe la centaine de megaoctets, prendre Git LFS
+# avant que les clones ne deviennent penibles.
+
+# Une tonalite d essai fabriquee localement, qui n a rien a faire dans le depot.
+# Motif ANCRE : sans la barre oblique initiale, il matcherait a toute profondeur.
+/assets/musique/essai/
 
 # Systeme
 .DS_Store

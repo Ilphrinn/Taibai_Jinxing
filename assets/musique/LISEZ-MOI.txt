@@ -1,13 +1,77 @@
-Range tes musiques ici, un sous-dossier par ambiance.
+Deux niveaux de rangement, et rien d autre a configurer.
 
     assets/musique/
-        ambiance/     auberge.mp3, pluie-sur-le-toit.mp3, marche-de-nuit.mp3
-        combat/       poursuite.mp3, duel-au-sabre.mp3
-        rituel/       temple.mp3, invocation.mp3
-        voyage/       route-de-la-soie.mp3
+        ambiance/                 tout ce qui pose une scene
+            tambours-lointains.ogg    <- a la racine : « Partout »
+            chenlin/
+                bambous.ogg
+                pochette.png
+            heibing/
+        combat/                   tout ce qui accompagne un affrontement
+            chenlin/
+            portes-de-l-enfer/
 
-Le nom du sous-dossier devient la categorie : /musique ambiance categorie:combat
-enchaine tout le dossier « combat », melange, en boucle.
+Le dossier de tete est la CATEGORIE MAJEURE : ambiance ou combat. Le bouton du
+panneau passe de l une a l autre.
+
+Le sous-dossier est le LIEU. Un fichier pose directement dans ambiance/ ou dans
+combat/, sans sous-dossier, vaut « Partout » : il s affiche en tete de la liste
+des lieux, avant les regions.
+
+Un dossier plus profond ne cree pas de troisieme niveau : la piste reste
+rattachee a son lieu. C est utile pour ranger sans changer l affichage.
+
+
+LES DIX-HUIT LIEUX
+------------------
+
+Les dossiers portent le slug, sans accent ni apostrophe : c est le nom accentue
+qui s affiche dans le panneau. Les douze regions numerotees, dans l ordre :
+
+    chenlin              Chenlin
+    xanya                Xanya
+    mortes-terres        Les Mortes-Terres
+    huangxin             HuangXin
+    portes-de-l-enfer    Les Portes de l Enfer
+    jiuyi                Jiuyi
+    heibing              Heibing
+    shaluo-zhou          Shaluo Zhou
+    muye                 Muye  (propose)
+    vallee-fantome       Vallee Fantome
+    guanghan             Guanghan  (propose)
+    mont-tien            Mont Tien
+
+Puis les lieux hors numerotation :
+
+    le-reve              Le Reve
+    donghai              Donghai
+    fusang               Fusang
+    fonds-marins         Les Fonds marins
+    enfers               Les Enfers
+    au-dela              L au-dela
+
+Un dossier absent de cette liste marche quand meme : il s affiche sous son nom
+de dossier, en fin de liste. Pour lui donner un nom accentue et une place dans
+l ordre, ajoute une ligne dans src/lib/lieux.js.
+
+Un lieu sans aucune piste n apparait pas dans le menu : les dossiers vides ne
+genent personne.
+
+
+LES POCHETTES
+-------------
+
+Une image nommee comme la piste (bambous.jpg a cote de bambous.ogg) l emporte
+sur pochette.png du dossier du lieu, qui l emporte sur celle de la majeure, qui
+l emporte sur celle posee a la racine. Formats : png, jpg, jpeg, webp, gif.
+Une seule image par region suffit donc.
+
+Un emoji du serveur portant le nom du slug (« chenlin ») illustre le lieu dans
+le menu. Absent, on n en parle pas.
+
+
+LES FICHIERS
+------------
 
 Le nom du fichier devient le titre affiche. Les tirets et les tirets bas
 deviennent des espaces : « pluie-sur-le-toit.mp3 » s affiche « pluie sur le toit ».
@@ -17,4 +81,6 @@ Le plus economique pour un serveur : de l ogg ou de l opus en 96 kbps mono.
 Discord reencode tout en Opus 48 kHz de toute facon — inutile de televerser du FLAC.
 
 Ces fichiers ne sont pas suivis par git (voir .gitignore) : ils sont trop lourds.
-Le README explique comment les faire arriver jusqu au serveur.
+L exclusion se fait par extension, donc l arborescence des lieux et les pochettes,
+elles, partent bien dans le depot. Le README explique comment faire arriver les
+musiques jusqu au serveur.

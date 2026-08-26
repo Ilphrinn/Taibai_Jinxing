@@ -2,14 +2,15 @@
 // ses boutons et ses menus. Les identifiants de composants sont prefixes du nom
 // de la commande (« musique:… ») : c est ce qui permet a index.js d aiguiller
 // un clic vers ce fichier sans table de correspondance supplementaire.
-import {
-  SlashCommandBuilder, InteractionContextType,
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder,
-} from 'discord.js';
+//
+// Le dessin du panneau est dans lib/panneau.js ; ici, l aiguillage et les actions.
+import { SlashCommandBuilder, InteractionContextType, MessageFlags } from 'discord.js';
 import { AudioPlayerStatus } from '@discordjs/voice';
-import { rejoindre, session, bibliotheque, categories, MODES_BOUCLE } from '../lib/musique.js';
-import { COULEURS } from '../lib/couleurs.js';
+import { rejoindre, session, bibliotheque, MODES_BOUCLE } from '../lib/musique.js';
+import {
+  poser, oublier, selection, majeureSuivante, pistesDeLaSelection, TOUS,
+} from '../lib/navigation.js';
+import { rendu, oublierPochette } from '../lib/panneau.js';
 import { config } from '../config.js';
 import { log } from '../logger.js';
 
@@ -19,100 +20,54 @@ export const data = new SlashCommandBuilder()
   .setContexts(InteractionContextType.Guild);
 
 const PAS_VOLUME = 0.1;
-const pourcent = (v) => `${Math.round(v * 100)} %`;
 
-const DIT_BOUCLE = { aucune: 'Aucune', piste: 'Piste', liste: 'Liste' };
+// Les deux seules actions qui demandent le salon vocal : elles lancent du son.
+const REJOINT = new Set(['jouer', 'piste']);
 
-// --- Rendu ---------------------------------------------------------------
+// Feuilleter la bibliotheque n exige rien — ni session, ni vocal. C est le
+// point de la navigation : on regarde ce qu on a avant de faire venir le bot.
+const NAVIGATION = new Set(['lieu', 'majeure', 'page-', 'page+']);
 
-/** Construit le panneau a partir de l etat courant. `s` peut etre null. */
-function rendu(s) {
-  const pistes = bibliotheque();
-  const joue = Boolean(s?.courante);
-  const enPause = s?.statut === AudioPlayerStatus.Paused;
+// --- Rafraichissement automatique ----------------------------------------
 
-  const embed = new EmbedBuilder()
-    .setColor(joue ? (enPause ? COULEURS.or : COULEURS.jade) : COULEURS.encre)
-    .setTitle('太白金星 — Ambiances');
+// La barre de progression n avance que si quelqu un redessine le panneau.
+// Une minuterie par serveur, et rien de plus : pas de duree connue ou pas de
+// lecture en cours, on ne depense pas une requete pour un affichage identique.
+const minuteries = new Map();
 
-  if (!pistes.length) {
-    embed.setDescription(
-      `Aucun fichier dans \`${config.dossierMusique}\`.\n\n` +
-      'Dépose des `.mp3` ou des `.ogg` dans des sous-dossiers : ' +
-      'un dossier vaut une ambiance, le nom du fichier devient le titre.'
-    );
-    return { embeds: [embed], components: [] };
-  }
+function desarmer(guildeId) {
+  const m = minuteries.get(guildeId);
+  if (m) { clearInterval(m); minuteries.delete(guildeId); }
+}
 
-  embed.setDescription(joue
-    ? `${enPause ? '⏸' : '▶'} **${s.courante.titre}**\n*${s.courante.categorie}*`
-    : '*Rien en cours.*');
-
-  embed.addFields(
-    { name: 'Volume', value: pourcent(s?.volume ?? config.volumeDefaut), inline: true },
-    { name: 'Boucle', value: DIT_BOUCLE[s?.boucle ?? 'aucune'], inline: true },
-    { name: 'En file', value: String(s?.file.length ?? 0), inline: true },
-  );
-
-  if (s?.file.length) {
-    embed.addFields({
-      name: 'À suivre',
-      value: s.file.slice(0, 5).map((p, i) => `${i + 1}. ${p.titre}`).join('\n')
-        + (s.file.length > 5 ? `\n… et ${s.file.length - 5} autres` : ''),
-    });
-  }
-
-  // Discord plafonne un menu a 25 entrees.
-  const cats = categories().slice(0, 25);
-  const vingtCinq = pistes.slice(0, 25);
-  if (pistes.length > 25) {
-    embed.setFooter({ text: `${pistes.length} pistes — le menu n en montre que 25. Passe par les ambiances.` });
-  }
-
-  const menuAmbiance = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('musique:categorie')
-      .setPlaceholder('Une ambiance — tout le dossier, mélangé, en boucle')
-      .addOptions(cats.map((c) => ({ label: c.slice(0, 100), value: c.slice(0, 100) }))));
-
-  const menuPiste = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('musique:piste')
-      .setPlaceholder('Une piste précise')
-      .addOptions(vingtCinq.map((p) => ({
-        label: p.titre.slice(0, 100),
-        description: p.categorie.slice(0, 100),
-        value: p.id.slice(0, 100),
-      }))));
-
-  const bouton = (id, emoji, style = ButtonStyle.Secondary) =>
-    new ButtonBuilder().setCustomId(`musique:${id}`).setEmoji(emoji).setStyle(style).setDisabled(!s);
-
-  const transport = new ActionRowBuilder().addComponents(
-    bouton('lecture', enPause ? '▶️' : '⏸️', joue ? ButtonStyle.Primary : ButtonStyle.Secondary),
-    bouton('suivant', '⏭️'),
-    bouton('volume-', '🔉'),
-    bouton('volume+', '🔊'),
-    bouton('boucle', '🔁'),
-  );
-
-  const arret = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('musique:stop')
-      .setLabel('Arrêter et quitter')
-      .setEmoji('⏹️')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled(!s));
-
-  return { embeds: [embed], components: [menuAmbiance, menuPiste, transport, arret] };
+function armer(guildeId) {
+  if (config.panneauMs <= 0 || minuteries.has(guildeId)) return;
+  const m = setInterval(() => {
+    const s = session(guildeId);
+    if (!s || !s.panneau) { desarmer(guildeId); return; }
+    if (s.statut !== AudioPlayerStatus.Playing) return;
+    if (!s.courante?.duree) return;
+    s.panneau.edit(rendu(s, s.panneau.guild))
+      .catch((err) => {
+        log.debug(`Panneau perdu : ${err.message}`);
+        s.panneau = null;
+        desarmer(guildeId);
+      });
+  }, config.panneauMs);
+  m.unref?.();
+  minuteries.set(guildeId, m);
 }
 
 /** Le panneau se remet a jour quand la session change d elle-meme. */
 function accrocher(s) {
   if (s.surChangement) return s;
   s.surChangement = () => {
+    // detruire() previent en dernier, la session deja retiree : c est le moment
+    // d arreter la minuterie plutot que d attendre qu elle le constate.
+    const vivante = session(s.guildeId);
+    if (!vivante) desarmer(s.guildeId);
     if (!s.panneau) return;
-    s.panneau.edit(rendu(session(s.guildeId)))
+    s.panneau.edit(rendu(vivante, s.panneau.guild))
       .catch((err) => { log.debug(`Panneau perdu : ${err.message}`); s.panneau = null; });
   };
   return s;
@@ -123,10 +78,29 @@ function accrocher(s) {
 export async function execute(interaction) {
   // Rejoindre un salon vocal peut demander plusieurs secondes ; Discord n en
   // accorde que trois pour repondre. On accuse reception avant d essayer.
-  await interaction.deferReply();
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const s = accrocher(await rejoindre(interaction.member, interaction.channel));
-  await interaction.editReply(rendu(s));
-  s.panneau = await interaction.fetchReply();
+
+  // Un panneau deja pose dans ce salon est repris tel quel : inutile d en
+  // empiler un deuxieme, et l ancien deviendrait inerte sans le dire.
+  if (s.panneau && s.panneau.channelId === interaction.channelId) {
+    await s.panneau.edit(rendu(s, interaction.guild)).catch(() => { s.panneau = null; });
+    if (s.panneau) {
+      armer(s.guildeId);
+      await interaction.editReply(`Le panneau est déjà ouvert : ${s.panneau.url}`);
+      return;
+    }
+  }
+
+  // Le panneau doit vivre toute la seance. Une reponse d interaction ne le
+  // peut pas : son jeton expire au bout de quinze minutes et chaque edition
+  // echouerait ensuite en silence. On poste donc un message ordinaire, qui
+  // s edite sans limite de duree.
+  oublierPochette(s.guildeId);
+  oublier(s.guildeId); // un panneau neuf repart en haut de la bibliotheque
+  s.panneau = await interaction.channel.send(rendu(s, interaction.guild));
+  armer(s.guildeId);
+  await interaction.editReply('Panneau ouvert plus bas dans le salon.');
 }
 
 // --- Clics et menus ------------------------------------------------------
@@ -145,18 +119,35 @@ export async function composant(interaction) {
   // c est la reponse a l interaction qui fera l affichage, une seule fois.
   if (s) s.panneau = null;
 
-  if (action === 'categorie' || action === 'piste') {
+  if (REJOINT.has(action)) {
     s = accrocher(await rejoindre(interaction.member, interaction.channel));
     s.panneau = null;
-  } else if (!s) {
+  } else if (!s && !NAVIGATION.has(action)) {
     throw new Error('Je ne joue rien pour le moment. Relance `/musique`.');
   }
 
   switch (action) {
-    case 'categorie': {
-      const categorie = interaction.values[0];
-      const pistes = bibliotheque({ forcer: true }).filter((p) => p.categorie === categorie);
-      if (!pistes.length) throw new Error(`Le dossier « ${categorie} » est vide ou inconnu.`);
+    // --- Navigation : on feuillette, on ne joue rien ----------------------
+    case 'lieu':
+      poser(interaction.guildId, { lieu: interaction.values[0], page: 0 });
+      break;
+    case 'majeure':
+      poser(interaction.guildId, {
+        majeure: majeureSuivante(interaction.guildId), lieu: TOUS, page: 0,
+      });
+      break;
+    case 'page-':
+      poser(interaction.guildId, { page: selection(interaction.guildId).page - 1 });
+      break;
+    case 'page+':
+      poser(interaction.guildId, { page: selection(interaction.guildId).page + 1 });
+      break;
+
+    // --- Lecture ----------------------------------------------------------
+    case 'jouer': {
+      bibliotheque({ forcer: true });
+      const pistes = pistesDeLaSelection(interaction.guildId);
+      if (!pistes.length) throw new Error('Il n y a rien à jouer ici.');
       s.vider();
       s.ajouter(pistes);
       s.melanger();
@@ -167,7 +158,7 @@ export async function composant(interaction) {
     case 'piste': {
       const piste = bibliotheque({ forcer: true }).find((p) => p.id === interaction.values[0]);
       if (!piste) throw new Error('Cette piste a disparu de la bibliothèque.');
-      s.file.unshift(piste);
+      s.prioriser(piste);
       if (s.courante) s.suivant(); else await s.demarrer();
       break;
     }
@@ -187,20 +178,28 @@ export async function composant(interaction) {
     case 'boucle':
       s.boucle = MODES_BOUCLE[(MODES_BOUCLE.indexOf(s.boucle) + 1) % MODES_BOUCLE.length];
       break;
+    case 'melanger':
+      if (!s.file.length) throw new Error('La file est vide : il n y a rien à mélanger.');
+      s.melanger();
+      break;
     case 'stop':
       s.stop();
       s.detruire();
+      desarmer(interaction.guildId);
       break;
     default:
       throw new Error(`Action inconnue : ${action}`);
   }
 
-  await interaction.editReply(rendu(session(interaction.guildId)));
+  await interaction.editReply(rendu(session(interaction.guildId), interaction.guild));
 
   // On raccroche le panneau : la piste demandee ne demarre qu au prochain tour
   // de boucle d evenements, et c est le rafraichissement qui l affichera.
   const vivante = session(interaction.guildId);
-  if (vivante) vivante.panneau = interaction.message;
+  if (vivante) {
+    vivante.panneau = interaction.message;
+    armer(interaction.guildId);
+  }
 }
 
 export default { data, execute, composant };
