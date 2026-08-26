@@ -117,11 +117,26 @@ Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras.
 > rejetés par l'API. Pour changer le libellé, une seule ligne dans
 > [`src/lib/commande-des.js`](src/lib/commande-des.js).
 
-**Les émojis de dés.** Si tu téléverses les huit images de `assets/emoji/` sur
-le serveur, un `/d 6` affiche la vraie face du dé, et un d20 sur 1 ou 20 sort
-le dé correspondant. Le bot les cherche **par nom**, pas par identifiant :
-rien à configurer, et s'ils ne sont pas là il retombe sur le 🎲 sans un mot.
-Le mode d'emploi et la licence sont dans `assets/emoji/LISEZ-MOI.txt`.
+**Les émojis de dés.** Téléverse les sept images de `assets/emoji/` sur ton
+serveur (Paramètres → Émojis → Importer, en gardant les noms de fichiers) et le
+jet affiche le dé qu'on a lancé : `d2`, `d4`, `d6`, `d10`, `d12`, `d20`, `d100`.
+
+```
+/d 20        →  [d20] 14
+/d 3d6       →  [d6] 11  ·  3d6 [4, 5, 2]
+/r 1d100     →  [d100] 73
+```
+
+L'émoji désigne le **dé**, pas le résultat : il vaut donc autant pour `3d6` que
+pour `1d6`. Sur un jet qui mélange deux types (`1d6+1d20`) ou sur un dé sans
+image (`1d7`), le bot reprend le 🎲 générique — mieux vaut rien qu'une image
+fausse. Il les cherche **par nom**, jamais par identifiant : rien à configurer,
+et s'ils ne sont pas là, personne ne s'en aperçoit.
+
+Deux choses à savoir : le `d100` porte volontairement l'image du `d10`, parce
+qu'un percentile se lance avec des d10 ; et le d8 manque, game-icons.net
+refusant de le servir en fond transparent. Le détail, la marche à suivre et la
+licence sont dans `assets/emoji/LISEZ-MOI.txt`.
 
 Le tirage utilise `crypto.randomBytes` avec rejet des valeurs biaisées, pas
 `Math.random`. C'est gratuit et ça évite les discussions à la table. Bornes : 100

@@ -43,16 +43,19 @@ function emoji(guilde, nom) {
   return guilde?.emojis.cache.find((e) => e.name === nom)?.toString() ?? null;
 }
 
-// Parcimonieux a dessein : un seul de, et seulement la ou la face veut dire
-// quelque chose. Un emoji partout deviendrait du bruit.
+// Les des du jeu de role classique, ceux pour lesquels une image existe dans
+// assets/emoji/. Le d8 manque : game-icons.net ne le sert pas en fond
+// transparent (403 constant, verifie le 26 aout 2026).
+const TYPES = new Set([2, 4, 6, 10, 12, 20, 100]);
+
+// L emoji designe le DE LANCE, pas le resultat : il vaut donc pour « 3d6 »
+// comme pour « 1d6 ». Il faut en revanche que tout le jet porte sur le meme
+// type, sinon l image mentirait sur ce qui a ete lance.
 function des(interaction, r) {
-  if (r.jets.length === 1 && r.jets[0].nb === 1) {
-    const { faces, valeurs } = r.jets[0];
-    const v = valeurs[0];
-    if (faces === 6) return emoji(interaction.guild, `d6_${v}`);
-    if (faces === 20 && (v === 1 || v === 20)) return emoji(interaction.guild, `d20_${v}`);
-  }
-  return null;
+  const faces = r.jets[0]?.faces;
+  if (!faces || !TYPES.has(faces)) return null;
+  if (!r.jets.every((j) => j.faces === faces)) return null;
+  return emoji(interaction.guild, `d${faces}`);
 }
 
 export async function executer(interaction) {

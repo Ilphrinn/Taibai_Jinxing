@@ -1,48 +1,67 @@
 Émojis de dés — à téléverser sur le serveur Discord
 ===================================================
 
-Huit images, prêtes à l'emploi. Le bot ne les cherche PAS par identifiant mais
-par NOM : garde exactement les noms de fichiers ci-dessous en les téléversant,
-sinon il retombera silencieusement sur le 🎲 habituel.
+Un dé par type, celui du jeu de rôle classique. Le bot ne les cherche PAS par
+identifiant mais par NOM : garde exactement les noms de fichiers en les
+téléversant, sinon il retombera silencieusement sur le 🎲 habituel.
 
-    d6_1 … d6_6     dés à six faces, en perspective, la face du dessus
-                    portant le résultat
-    d20_1           le d20 sur son 1 — l'échec funeste
-    d20_20          le d20 sur son 20 — la réussite éclatante
+    d2      un jeton — il n'existe pas de dé à deux faces, on lance une pièce
+    d4      le tétraèdre
+    d6      le cube
+    d10     le dé à dix faces
+    d12     le dodécaèdre
+    d20     l'icosaèdre
+    d100    la même image que le d10 : le percentile SE LANCE avec des d10,
+            il n'existe pas d'icône propre — voir plus bas
+
+Le d8 manque. game-icons.net refuse de le servir en fond transparent (erreur
+403 constante, vérifié le 26 août 2026) alors que ses voisins passent. C'est un
+défaut de leur côté, pas une omission. Si tu en as besoin, réessaie l'adresse :
+
+    https://game-icons.net/icons/ffffff/transparent/1x1/delapouite/dice-eight-faces-eight.png
+
+et nomme le fichier d8.png — le bot le prendra sans qu'on touche au code.
 
 
 Comment les téléverser
 ----------------------
 
-Paramètres du serveur → Émojis → Importer. Tu peux sélectionner les huit d'un
+Paramètres du serveur → Émojis → Importer. Tu peux sélectionner les sept d'un
 coup ; Discord reprend le nom du fichier. Vérifie ensuite qu'il n'a pas ajouté
-de suffixe (« d6_1_1 ») s'il existait déjà un émoji du même nom.
+de suffixe (« d6_1 ») s'il existait déjà un émoji du même nom.
 
-Un serveur non boosté accepte 50 émojis : huit ne mangent pas grand-chose.
+Un serveur non boosté accepte 50 émojis : sept ne mangent pas grand-chose.
 
 
 Quand le bot s'en sert
 ----------------------
 
-    /d 6        →  un seul d6, il affiche la face correspondante
-    /d 20       →  seulement sur un 1 ou un 20, les deux résultats qui comptent
-    tout le reste →  le 🎲 générique
+L'émoji désigne le dé lancé, pas le résultat. Il apparaît donc sur tous les
+jets portant sur un seul type de dé :
 
-C'est délibérément parcimonieux : un émoji par jet garde son effet, un émoji
-partout devient du bruit.
+    /d 20        →  [d20] 14
+    /d 3d6       →  [d6] 11  ·  3d6 [4, 5, 2]
+    /d 2d6+3     →  [d6] 12  ·  2d6 [4, 5] +3
+    /r 1d100     →  [d100] 73
+
+Sur un jet mélangeant deux types (1d6+1d8), ou sur un dé qui n'a pas d'image
+(1d7, 1d30), il reprend le 🎲 générique : mieux vaut rien qu'une image fausse.
 
 
-Un défaut à connaître
----------------------
+Deux défauts à connaître
+------------------------
 
-Les images sont **blanches sur fond transparent**. Elles ressortent bien sur le
+**Le d100 porte l'image du d10.** C'est volontaire et ce n'est pas un raccourci
+paresseux : un percentile se lance avec des dés à dix faces, il n'existe pas de
+dé à cent faces courant. L'émoji est distinct (nom `d100`), seule l'image est
+partagée. Si ça te gêne, remplace `d100.png` par ce que tu veux, le bot ne
+regarde que le nom.
+
+**Les images sont blanches sur fond transparent.** Elles ressortent bien sur le
 thème sombre de Discord, qui est celui par défaut ; sur le thème clair, elles
-seront à peine visibles.
+seront à peine visibles. La variante noire tient à un morceau d'adresse :
 
-Si quelqu'un à ta table joue en thème clair, reprends les mêmes fichiers en
-noir — il suffit de changer un morceau de l'adresse :
-
-    https://game-icons.net/icons/000000/transparent/1x1/delapouite/<nom>.png
+    https://game-icons.net/icons/000000/transparent/1x1/<auteur>/<nom>.png
 
 Le site n'accepte que trois combinaisons : ffffff/transparent (celle utilisée
 ici), 000000/transparent, et ffffff/000000 (blanc sur carré noir, visible
@@ -52,13 +71,17 @@ partout mais lourd à l'œil).
 Provenance et licence
 ---------------------
 
-Icônes de Delapouite, publiées sur https://game-icons.net sous licence
-Creative Commons BY 3.0 : https://creativecommons.org/licenses/by/3.0/
+Icônes de Delapouite et de Skoll, publiées sur https://game-icons.net sous
+licence Creative Commons BY 3.0 :
+https://creativecommons.org/licenses/by/3.0/
 
 L'attribution est obligatoire, y compris pour un usage privé. Ce fichier la
 porte ; garde-le à côté des images.
 
 Noms d'origine :
-    perspective-dice-six-faces-one … -six   →  d6_1 … d6_6
-    dice-twenty-faces-one                   →  d20_1
-    dice-twenty-faces-twenty                →  d20_20
+    delapouite/token                      →  d2
+    skoll/d4                              →  d4
+    delapouite/dice-six-faces-six         →  d6
+    skoll/d10                             →  d10  et  d100
+    skoll/d12                             →  d12
+    delapouite/dice-twenty-faces-twenty   →  d20

@@ -120,14 +120,28 @@ deux dés, d'un modificateur ou de dés écartés — sinon on ne saurait pas ce
 [14]`), ce qu'Ilphrinn a relevé à juste titre.
 
 **Les émojis de dés se cherchent par nom, jamais par identifiant.**
-`guilde.emojis.cache.find((e) => e.name === 'd6_4')`. Rien à coder en dur, rien
-à reconfigurer si le serveur change, et si l'émoji n'a pas été téléversé le bot
-retombe sur le 🎲 sans un mot. Les images sont dans `assets/emoji/` avec leur
-attribution (Delapouite, game-icons.net, CC BY 3.0 — l'attribution est due, ne
-supprime pas le `LISEZ-MOI.txt`). Elles sont blanches sur transparent : très
-bien sur le thème sombre, faibles sur le thème clair. Aucun outil de retouche
-d'image sur cette machine — `convert` est le convertisseur de volumes de
-Windows, pas ImageMagick.
+`guilde.emojis.cache.find((e) => e.name === 'd20')`. Rien à coder en dur, rien à
+reconfigurer si le serveur change, et si l'émoji n'a pas été téléversé le bot
+retombe sur le 🎲 sans un mot.
+
+**L'émoji désigne le dé lancé, pas le résultat.** Première version : une image
+par face de d6 (`d6_1`… `d6_6`). Ilphrinn voulait en fait le jeu classique — un
+dé par type, `d2 d4 d6 d10 d12 d20 d100`. C'est mieux : ça vaut pour `3d6`
+comme pour `1d6`. La règle exige que tout le jet porte sur un seul type, sinon
+l'image mentirait sur ce qui a été lancé.
+
+Deux compromis assumés, tous deux écrits dans `assets/emoji/LISEZ-MOI.txt` :
+le `d100` porte l'image du `d10` (un percentile se lance avec des d10 ; il
+n'existe pas d'icône de dé à cent faces), et **le d8 manque** —
+game-icons.net renvoie un 403 constant sur ce seul icône en fond transparent,
+alors que ses voisins passent, et sert du HTML à la place du PNG. Vérifie les
+octets d'en-tête avant de croire un téléchargement.
+
+Images de Delapouite et Skoll via game-icons.net, CC BY 3.0 : l'attribution est
+due, ne supprime pas le `LISEZ-MOI.txt`. Elles sont blanches sur transparent :
+très bien sur le thème sombre, faibles sur le thème clair. Aucun outil de
+retouche d'image sur cette machine — `convert` est le convertisseur de volumes
+de Windows, pas ImageMagick.
 
 ---
 
