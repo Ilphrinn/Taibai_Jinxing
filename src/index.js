@@ -1,7 +1,7 @@
 // Taibai Jinxing — point d entree.
 import { Client, GatewayIntentBits, Events, ActivityType, MessageFlags } from 'discord.js';
 import { generateDependencyReport } from '@discordjs/voice';
-import sodium from 'libsodium-wrappers';
+import { createRequire } from 'node:module';
 import { config } from './config.js';
 import { log } from './logger.js';
 import { chargerCommandes } from './lib/chargeur.js';
@@ -9,6 +9,13 @@ import { toutQuitter, surChangementVocal, bibliotheque } from './lib/musique.js'
 import { fermerBase } from './lib/db.js';
 
 // Le chiffrement vocal doit etre pret avant toute connexion audio.
+// L entree ESM de libsodium-wrappers est cassee en amont : son
+// dist/modules-esm/libsodium-wrappers.mjs importe « ./libsodium.mjs », un
+// fichier qui appartient au paquet voisin « libsodium » et qu il ne livre pas.
+// On charge donc la version CommonJS, qui resout le paquet correctement.
+// Ne remplace pas ceci par « import sodium from 'libsodium-wrappers' » : le
+// bot ne demarrerait plus. Verifie d abord que l amont a corrige son paquet.
+const sodium = createRequire(import.meta.url)('libsodium-wrappers');
 await sodium.ready;
 
 const client = new Client({

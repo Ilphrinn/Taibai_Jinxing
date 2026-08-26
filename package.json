@@ -13,6 +13,7 @@
     "commandes": "node src/deploy-commands.js",
     "commandes:purge": "node src/deploy-commands.js --purge",
     "lien": "node src/invite.js",
+    "connexion": "node src/connexion.js",
     "verif": "node --check src/index.js && node src/verif.js"
   },
   "dependencies": {

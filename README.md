@@ -40,6 +40,8 @@ heure de propagation.
 
 ```bash
 npm run lien              # imprime le lien d'invitation, permissions détaillées
+# ouvre le lien, invite le bot sur ton serveur, puis :
+npm run connexion         # jeton, application, présence sur le serveur
 npm run commandes         # déclare les commandes auprès de Discord
 npm start
 ```
@@ -231,6 +233,7 @@ Sur un VPS, la question ne se pose pas : `scp -r assets/musique serveur:/opt/tai
 | Situation | Quoi faire |
 |---|---|
 | Les commandes n'apparaissent pas | `npm run commandes`. Sans `DISCORD_GUILD_ID`, compte jusqu'à une heure. |
+| Rien ne répond, rien n'apparaît | `npm run connexion` — il dit lequel des trois est en cause : le jeton, l'identifiant d'application, ou l'invitation |
 | Une commande a changé de forme | rejoue `npm run commandes` : Discord ne devine rien. |
 | Tout retirer | `npm run commandes:purge` |
 | Le bot ne parle pas dans le salon vocal | vérifie « Se connecter » et « Parler » **sur le salon**, pas seulement sur le serveur |
@@ -263,6 +266,7 @@ src/
     config.js             lecture de .env, seul endroit qui lit process.env
     deploy-commands.js    déclaration des commandes
     invite.js             construction du lien d'invitation
+    connexion.js          jeton, application, invitation : un aller-retour
     verif.js              diagnostic hors ligne
     commands/             une commande par fichier, chargées automatiquement
     lib/

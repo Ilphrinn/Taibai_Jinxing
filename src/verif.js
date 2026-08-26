@@ -59,6 +59,18 @@ if (!/opus: .*(?<!not found)$/m.test(rapport) && rapport.includes('Opus: not fou
 if (rapport.includes('Encryption: not found')) probleme('Aucune bibliotheque de chiffrement vocal.');
 if (rapport.includes('FFmpeg: not found')) probleme('FFmpeg introuvable : aucune lecture possible.');
 
+// Le rapport ci-dessus interroge les paquets par require : il ne dit pas si
+// index.js parvient reellement a les charger. On refait donc le geste du
+// demarrage, seul moyen d attraper une entree de module cassee en amont.
+const { createRequire } = await import('node:module');
+try {
+  const sodium = createRequire(import.meta.url)('libsodium-wrappers');
+  await sodium.ready;
+  console.log('  Chargement  : libsodium se charge comme au demarrage.');
+} catch (err) {
+  probleme(`libsodium ne se charge pas : ${err.message}`);
+}
+
 console.log('\n' + '─'.repeat(69));
 console.log(soucis ? `  ${soucis} probleme(s) a regler.\n` : '  Tout est en ordre.\n');
 process.exit(soucis ? 1 : 0);

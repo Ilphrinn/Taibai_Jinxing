@@ -75,6 +75,22 @@ défends pas ce choix : c'était un défaut raisonnable, rien de plus.
 
 ## Pièges rencontrés, à ne pas re-découvrir
 
+**L'entrée ESM de `libsodium-wrappers` est cassée en amont.** Son
+`dist/modules-esm/libsodium-wrappers.mjs` fait `import e from "./libsodium.mjs"` —
+un chemin *relatif* vers un fichier qui appartient au paquet voisin `libsodium` et
+que son champ `files` ne livre pas. `import sodium from 'libsodium-wrappers'` échoue
+donc systématiquement en `ERR_MODULE_NOT_FOUND`, sur toute plateforme. `index.js`
+passe par `createRequire` : la version CommonJS, elle, résout correctement. Le
+commentaire sur place le dit — ne le retire pas sans avoir vérifié que l'amont a
+corrigé son paquet (0.8.x reste à vérifier ; je n'ai pas pu le confirmer).
+
+Ce bug a survécu à toute la première session parce que `npm run verif` fait
+`node --check` sur `index.js` — la syntaxe, pas l'exécution — et que le rapport de
+dépendances de `@discordjs/voice` interroge le paquet par `require`. **Une
+dépendance « présente » au rapport n'est pas une dépendance qui s'importe.** Le seul
+vrai test est de lancer `src/index.js` ; avec un jeton bidon, il va jusqu'à
+`TokenInvalid`, ce qui prouve tout le chemin sauf la connexion elle-même.
+
 **L'outil Bash consomme un niveau d'échappement.** Un heredoc contenant `\'` ou
 `\\u0300` arrive déformé côté fichier — ça m'a coûté deux échecs sur `musique.js`.
 Pour tout fichier contenant des antislashs, des apostrophes échappées ou des
