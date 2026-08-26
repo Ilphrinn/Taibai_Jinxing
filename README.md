@@ -118,20 +118,44 @@ Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras.
 > [`src/lib/commande-des.js`](src/lib/commande-des.js).
 
 **Les émojis de dés.** Téléverse les six images de `assets/emoji/` sur ton
-serveur (Paramètres → Émojis → Importer, en gardant les noms de fichiers) et le
-jet affiche le dé qu'on a lancé : `d2`, `d4`, `d6`, `d10`, `d12`, `d20`.
+serveur (Paramètres → Émojis → Importer, en gardant les noms de fichiers) et
+chaque dé lancé s'affiche avec le sien : `d2`, `d4`, `d6`, `d10`, `d12`, `d20`.
 
 ```
-/d 20        →  [d20] 14
-/d 3d6       →  [d6] 11  ·  3d6 [4, 5, 2]
-/r 1d100     →  [d10][d10] 73
+/d 20          →  [d20] 14
+/d 3d20        →  [d20] 15  ·  [d20] 1  ·  [d20] 12   →   28
+/d 2d6+3       →  [d6] 2  ·  [d6] 4  ·  +3   →   9
+/d 4d6kh3      →  [d6] 2  ·  [d6] 3  ·  [d6] ~~1~~  ·  [d6] 2   →   7
+/r 1d100       →  [d10][d10] 73
+/d 2d20-1d6+3  →  [d20] 3  ·  [d20] 7  ·  −[d6] 5  ·  +3   →   8
 ```
 
-L'émoji désigne le **dé**, pas le résultat : il vaut donc autant pour `3d6` que
-pour `1d6`. Sur un jet qui mélange deux types (`1d6+1d20`) ou sur un dé sans
-image (`1d7`), le bot reprend le 🎲 générique — mieux vaut rien qu'une image
-fausse. Il les cherche **par nom**, jamais par identifiant : rien à configurer,
-et s'ils ne sont pas là, personne ne s'en aperçoit.
+**Un émoji par dé** : c'est ce qui montre qu'il y a eu trois jets et non un
+seul. Les dés écartés par `kh`/`kl` sont barrés, les extrêmes (1 ou face
+maximale) en gras, et le total arrive après la flèche. Un dé seul sans
+modificateur n'affiche que son total — le détail n'apprendrait rien.
+
+Le bot cherche les émojis **par nom**, jamais par identifiant : rien à
+configurer, et s'ils ne sont pas là il reprend le 🎲 sans que personne ne s'en
+aperçoive.
+
+**Tous les dés sont acceptés, y compris ceux qui n'existent pas.** `/d 1d27`
+marche ; faute d'image, il affiche le 🎲 et rappelle la notation en fin de
+ligne, pour qu'on sache ce qui a été lancé :
+
+```
+/d 3d27        →  🎲 6  ·  🎲 24  ·  🎲 4   →   34  ·  `3d27`
+```
+
+**Au-delà de douze dés**, le détail passe en forme compacte, précédé de
+l'émoji `Power` s'il existe sur le serveur. Ce n'est pas de la coquetterie :
+un émoji personnalisé pèse une vingtaine de caractères, et le moteur accepte
+jusqu'à cent dés — cent émojis dépasseraient la limite de 2000 caractères d'un
+message Discord.
+
+```
+/d 20d6        →  [Power] 59  ·  20d6 [4, 1, 2, 3, 6, …]
+```
 
 Le `d100` n'a volontairement pas d'image : il n'existe aucune icône de
 percentile, et le bot montre donc **deux d10**, ce qu'on lance vraiment sur une

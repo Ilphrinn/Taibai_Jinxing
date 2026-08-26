@@ -31,6 +31,10 @@ export function evaluer(expression) {
   let total = 0;
   const parties = [];
   const jets = [];
+  // « termes » decrit le jet dans l ordre ou il a ete ecrit, chaque de garde sa
+  // valeur et son sort (garde ou ecarte). C est ce qui permet a l affichage de
+  // montrer un emoji par de plutot qu une chaine deja mise en forme.
+  const termes = [];
   let totalDes = 0;
 
   for (const morceau of morceaux) {
@@ -42,6 +46,7 @@ export function evaluer(expression) {
       const v = Number(m[5]);
       total += signe * v;
       parties.push(`${signe < 0 ? '−' : '+'}${v}`);
+      termes.push({ type: 'constante', signe, valeur: v });
       continue;
     }
 
@@ -72,8 +77,15 @@ export function evaluer(expression) {
       .join(', ');
     parties.push(`${signe < 0 ? '−' : parties.length ? '+' : ''}${nb}d${faces}${garde ?? ''} [${affiche}]`);
     jets.push({ nb, faces, valeurs, somme: signe * somme });
+    termes.push({
+      type: 'des',
+      nb, faces, signe,
+      garde,
+      des: retenus.map(({ v, garde: g }) => ({ v, garde: g })),
+      somme: signe * somme,
+    });
   }
 
-  return { total, detail: parties.join(' ').replace(/^\+/, ''), jets, expression: brut };
+  return { total, detail: parties.join(' ').replace(/^\+/, ''), jets, termes, expression: brut };
 }
 

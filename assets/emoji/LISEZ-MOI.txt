@@ -42,16 +42,40 @@ Un serveur non boosté accepte 50 émojis : six ne mangent pas grand-chose.
 Quand le bot s'en sert
 ----------------------
 
-L'émoji désigne le dé lancé, pas le résultat. Il apparaît donc sur tous les
-jets portant sur un seul type de dé :
+Un émoji PAR DÉ : c'est ce qui montre qu'il y a eu plusieurs jets et non un
+seul. Les dés écartés par kh/kl sont barrés, les extrêmes (1 ou face maximale)
+en gras, et le total vient après la flèche.
 
-    /d 20        →  [d20] 14
-    /d 3d6       →  [d6] 11  ·  3d6 [4, 5, 2]
-    /d 2d6+3     →  [d6] 12  ·  2d6 [4, 5] +3
-    /r 1d100     →  [d10][d10] 73
+    /d 20          →  [d20] 14
+    /d 3d20        →  [d20] 15  ·  [d20] 1  ·  [d20] 12   →   28
+    /d 2d6+3       →  [d6] 2  ·  [d6] 4  ·  +3   →   9
+    /d 4d6kh3      →  [d6] 2  ·  [d6] 3  ·  [d6] ~~1~~  ·  [d6] 2   →   7
+    /r 1d100       →  [d10][d10] 73
 
-Sur un jet mélangeant deux types (1d6+1d8), ou sur un dé qui n'a pas d'image
-(1d7, 1d30), il reprend le 🎲 générique : mieux vaut rien qu'une image fausse.
+Un dé seul et sans modificateur n'affiche que son total : le détailler
+n'apprendrait rien.
+
+Tous les dés sont acceptés, y compris ceux qui n'existent pas. Faute d'image,
+le bot met le 🎲 et rappelle la notation en fin de ligne :
+
+    /d 3d27        →  🎲 6  ·  🎲 24  ·  🎲 4   →   34  ·  `3d27`
+
+
+Un septième émoji, facultatif : Power
+-------------------------------------
+
+Au-delà de douze dés, le détail passe en forme compacte et l'émoji nommé
+`Power` sert de marqueur — un coup d'œil suffit à voir qu'il y avait trop de
+dés pour les montrer un par un.
+
+    /d 20d6        →  [Power] 59  ·  20d6 [4, 1, 2, 3, 6, …]
+
+Ce n'est pas de la coquetterie : un émoji personnalisé pèse une vingtaine de
+caractères, le moteur accepte jusqu'à cent dés, et cent émojis dépasseraient la
+limite de 2000 caractères d'un message Discord.
+
+Aucune image n'est fournie pour celui-là : prends ce que tu veux, nomme-le
+`Power`, et le bot le trouvera. S'il n'existe pas, il met le 🎲.
 
 
 Un défaut à connaître

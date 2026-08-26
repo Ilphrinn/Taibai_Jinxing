@@ -130,6 +130,31 @@ dé par type, `d2 d4 d6 d10 d12 d20`. C'est mieux : ça vaut pour `3d6` comme
 pour `1d6`. La règle exige que tout le jet porte sur un seul type, sinon
 l'image mentirait sur ce qui a été lancé.
 
+
+**Un émoji par dé, et `des.js` expose le détail pour ça.** Ilphrinn a relevé
+qu'un seul émoji pour `3d20` ne dit pas qu'il y a eu trois jets. Le moteur ne
+rendait le détail que sous forme de chaîne déjà mise en forme (`detail`), donc
+`evaluer()` retourne désormais aussi **`termes`** : chaque terme dans l'ordre
+écrit, chaque dé avec sa valeur et son sort (gardé ou écarté), le signe et la
+constante. `detail` reste, la forme compacte s'en sert encore. Si tu touches à
+l'affichage, pars de `termes`, jamais d'une chaîne à re-découper.
+
+**Le plafond de douze dés n'est pas esthétique, il est technique.** Un émoji
+personnalisé s'écrit `<:d20:1541…>`, soit une vingtaine de caractères ; le
+moteur accepte cent dés ; un message Discord est limité à 2000 caractères. Au
+delà de `MAX_DES_DETAILLES`, on repasse à la forme compacte, précédée de
+l'émoji `Power` — le nom vient d'Ilphrinn, aucune image n'est fournie pour
+celui-là.
+
+**Tout dé est accepté, même inexistant.** `1d27`, `1d1000` : faute d'image, le
+bot met le 🎲 et **rappelle la notation en fin de ligne**, sinon on ne saurait
+pas ce qui a été lancé. C'est aussi ce qui rend les jets mêlés (`1d6+1d20`)
+lisibles sans règle particulière : chaque dé porte son propre symbole.
+
+La recherche d'émoji est **insensible à la casse** : Discord conserve la casse
+du nom de fichier au téléversement, et échouer en silence sur un « P » serait
+pénible à diagnostiquer.
+
 **Le d100 n'a pas d'image, et il ne faut pas lui en inventer une.** J'avais
 d'abord recyclé celle du d10 ; Ilphrinn a eu raison de le refuser, c'était du
 bricolage déguisé en décision. Il n'existe aucune icône de percentile — vérifié

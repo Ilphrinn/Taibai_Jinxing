@@ -32,40 +32,91 @@ export function construire(nom, description) {
       .setMaxLength(100));
 }
 
-// Un seul de non modifie : le detail repeterait le total. Tout le reste
-// (plusieurs des, un modificateur, des dessin ecartes) merite d etre montre.
-const estSimple = (r) => r.jets.length === 1 && r.jets[0].nb === 1 && r.jets[0].somme === r.total;
+// --- Symboles ------------------------------------------------------------
 
-// Les emojis du serveur sont cherches par NOM, jamais par identifiant : rien a
-// coder en dur, et si l emoji n a pas ete televerse on retombe sur le 🎲 sans
-// que personne ne s en apercoive. Voir assets/emoji/LISEZ-MOI.txt.
-function emoji(guilde, nom) {
-  return guilde?.emojis.cache.find((e) => e.name === nom)?.toString() ?? null;
-}
-
-// Les des du jeu de role classique, ceux pour lesquels une image existe dans
-// assets/emoji/. Le d8 manque : game-icons.net ne le sert pas en fond
-// transparent (403 constant, verifie le 26 aout 2026).
+// Les des pour lesquels une image existe dans assets/emoji/. Le d8 manque :
+// game-icons.net ne le sert pas en fond transparent (403 constant, verifie le
+// 26 aout 2026). Ajoute 8 ici le jour ou tu deposes d8.png.
 const TYPES = new Set([2, 4, 6, 10, 12, 20]);
 
-// L emoji designe le DE LANCE, pas le resultat : il vaut donc pour « 3d6 »
-// comme pour « 1d6 ». Il faut en revanche que tout le jet porte sur le meme
-// type, sinon l image mentirait sur ce qui a ete lance.
-function des(interaction, r) {
-  const faces = r.jets[0]?.faces;
-  if (!faces || !r.jets.every((j) => j.faces === faces)) return null;
+// Cherches par NOM, jamais par identifiant : rien a coder en dur, rien a
+// reconfigurer si le serveur change. Voir assets/emoji/LISEZ-MOI.txt.
+// Comparaison insensible a la casse : Discord conserve la casse du nom de
+// fichier au televersement, et on ne va pas echouer en silence pour un « P ».
+function emoji(guilde, nom) {
+  const cherche = nom.toLowerCase();
+  return guilde?.emojis.cache.find((e) => e.name.toLowerCase() === cherche)?.toString() ?? null;
+}
 
-  // Le percentile n a pas d icone — ni sur game-icons.net, ni dans son depot
-  // amont, verifie. Plutot qu une image approximative, on montre ce qu on
-  // lance reellement : deux d10. C est aussi ce que tout le monde a sur sa
-  // table.
+/** L image d un type de de, ou null si le serveur ne l a pas. */
+function image(guilde, faces) {
+  // Le percentile n a pas d icone, ni sur game-icons.net ni dans son depot
+  // amont : on montre les deux d10 qu on lance reellement.
   if (faces === 100) {
-    const d10 = emoji(interaction.guild, 'd10');
+    const d10 = emoji(guilde, 'd10');
     return d10 && d10 + d10;
   }
+  return TYPES.has(faces) ? emoji(guilde, `d${faces}`) : null;
+}
 
-  if (!TYPES.has(faces)) return null;
-  return emoji(interaction.guild, `d${faces}`);
+// Un de sans image — d7, d27, d1000 — retombe sur le 🎲 generique. On note au
+// passage que le jet n est pas entierement illustre : la notation sera alors
+// rappelee en fin de ligne, sinon on ne saurait pas quel de a ete lance.
+const symbole = (guilde, faces) => image(guilde, faces) ?? '🎲';
+
+// Un extreme se remarque : 1 ou face maximale, a partir du d6. Un de ecarte
+// par kh/kl est barre.
+function valeur(v, faces, garde) {
+  if (!garde) return `~~${v}~~`;
+  return faces >= 6 && (v === 1 || v === faces) ? `**${v}**` : String(v);
+}
+
+// --- Rendu ---------------------------------------------------------------
+
+// Au-dela, un de par de deviendrait illisible, et surtout depasserait les 2000
+// caracteres d un message : un emoji personnalise en pese une vingtaine, et le
+// moteur accepte jusqu a 100 des. On retombe alors sur la forme compacte.
+const MAX_DES_DETAILLES = 12;
+
+// Le marqueur de cette forme compacte, choisi par Ilphrinn : il signale d un
+// coup d oeil qu il y avait trop de des pour les montrer un par un. Si l emoji
+// n existe pas sur le serveur, on retombe sur le 🎲.
+const EMOJI_TROP_DE_DES = 'Power';
+
+function rendre(interaction, r) {
+  const guilde = interaction.guild;
+  const groupes = r.termes.filter((t) => t.type === 'des');
+  const nbDes = groupes.reduce((n, t) => n + t.nb, 0);
+
+  if (nbDes > MAX_DES_DETAILLES) {
+    const s = emoji(guilde, EMOJI_TROP_DE_DES) ?? '🎲';
+    return `${s} **${r.total}**  ·  ${r.detail}`;
+  }
+
+  // Si un seul de est illustre a moitie, on rappelle la notation a la fin.
+  const toutIllustre = groupes.every((t) => image(guilde, t.faces));
+  const rappel = toutIllustre ? '' : `  ·  \`${r.expression}\``;
+
+  // Un seul de, sans modificateur : le total dit tout, le detailler serait un
+  // doublon — c est ce qu Ilphrinn avait releve.
+  if (r.termes.length === 1 && groupes.length === 1 && groupes[0].nb === 1) {
+    return `${symbole(guilde, groupes[0].faces)} **${r.total}**${rappel}`;
+  }
+
+  const morceaux = [];
+  for (const t of r.termes) {
+    if (t.type === 'constante') {
+      morceaux.push(`${t.signe < 0 ? '−' : '+'}${t.valeur}`);
+      continue;
+    }
+    const s = symbole(guilde, t.faces);
+    // Un de par de : c est ce qui montre qu il y a eu plusieurs jets.
+    for (const d of t.des) {
+      morceaux.push(`${t.signe < 0 ? '−' : ''}${s} ${valeur(d.v, t.faces, d.garde)}`);
+    }
+  }
+
+  return `${morceaux.join('  ·  ')}   →   **${r.total}**${rappel}`;
 }
 
 export async function executer(interaction) {
@@ -75,10 +126,5 @@ export async function executer(interaction) {
   // renvoie en ephemere : inutile de les attraper ici.
   const r = evaluer(normaliser(saisie));
 
-  const symbole = des(interaction, r) ?? '🎲';
-
-  // Le detail contient deja la notation : la repeter serait un doublon.
-  return interaction.reply(estSimple(r)
-    ? `${symbole} **${r.total}**`
-    : `${symbole} **${r.total}**  ·  ${r.detail}`);
+  return interaction.reply(rendre(interaction, r));
 }
