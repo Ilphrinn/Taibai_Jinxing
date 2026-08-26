@@ -1,0 +1,64 @@
+Émojis de dés — à téléverser sur le serveur Discord
+===================================================
+
+Huit images, prêtes à l'emploi. Le bot ne les cherche PAS par identifiant mais
+par NOM : garde exactement les noms de fichiers ci-dessous en les téléversant,
+sinon il retombera silencieusement sur le 🎲 habituel.
+
+    d6_1 … d6_6     dés à six faces, en perspective, la face du dessus
+                    portant le résultat
+    d20_1           le d20 sur son 1 — l'échec funeste
+    d20_20          le d20 sur son 20 — la réussite éclatante
+
+
+Comment les téléverser
+----------------------
+
+Paramètres du serveur → Émojis → Importer. Tu peux sélectionner les huit d'un
+coup ; Discord reprend le nom du fichier. Vérifie ensuite qu'il n'a pas ajouté
+de suffixe (« d6_1_1 ») s'il existait déjà un émoji du même nom.
+
+Un serveur non boosté accepte 50 émojis : huit ne mangent pas grand-chose.
+
+
+Quand le bot s'en sert
+----------------------
+
+    /d 6        →  un seul d6, il affiche la face correspondante
+    /d 20       →  seulement sur un 1 ou un 20, les deux résultats qui comptent
+    tout le reste →  le 🎲 générique
+
+C'est délibérément parcimonieux : un émoji par jet garde son effet, un émoji
+partout devient du bruit.
+
+
+Un défaut à connaître
+---------------------
+
+Les images sont **blanches sur fond transparent**. Elles ressortent bien sur le
+thème sombre de Discord, qui est celui par défaut ; sur le thème clair, elles
+seront à peine visibles.
+
+Si quelqu'un à ta table joue en thème clair, reprends les mêmes fichiers en
+noir — il suffit de changer un morceau de l'adresse :
+
+    https://game-icons.net/icons/000000/transparent/1x1/delapouite/<nom>.png
+
+Le site n'accepte que trois combinaisons : ffffff/transparent (celle utilisée
+ici), 000000/transparent, et ffffff/000000 (blanc sur carré noir, visible
+partout mais lourd à l'œil).
+
+
+Provenance et licence
+---------------------
+
+Icônes de Delapouite, publiées sur https://game-icons.net sous licence
+Creative Commons BY 3.0 : https://creativecommons.org/licenses/by/3.0/
+
+L'attribution est obligatoire, y compris pour un usage privé. Ce fichier la
+porte ; garde-le à côté des images.
+
+Noms d'origine :
+    perspective-dice-six-faces-one … -six   →  d6_1 … d6_6
+    dice-twenty-faces-one                   →  d20_1
+    dice-twenty-faces-twenty                →  d20_20

@@ -9,7 +9,7 @@ servir. Lis les deux avant de toucher quoi que ce soit.
 
 ## État réel au moment où j'écris (26 août 2026)
 
-**Il ne reste que deux commandes : `/d` et `/musique`.**
+**Il reste trois commandes : `/d`, son alias `/r`, et `/musique`.**
 
 **Vérifié :** `npm run verif` passe (2 commandes, 8 permissions, chaîne audio
 complète). Le moteur de dés est testé sur toute la notation, raccourci compris.
@@ -101,7 +101,33 @@ JDR, c'est gratuit et ça coupe court aux discussions.
 **Le raccourci de `/d` appartient à la commande, pas à l'analyseur.** `/d 6` vaut
 `1d6`, mais pour `lib/des.js` le `6` de `2d6+3` reste une constante — c'est correct.
 La conversion ne se fait que si l'expression entière n'est qu'un nombre, et elle est
-dans `commands/d.js`. Ne la descends pas dans le moteur.
+dans `lib/commande-des.js`, partagée par les deux noms. Ne la descends pas
+dans le moteur.
+
+**Un argument de commande ne peut pas être anonyme.** Ilphrinn a demandé que
+l'étiquette disparaisse de la barre de saisie. Ce n'est pas possible, et c'est
+vérifié plutôt que supposé : l'espace nu et l'insécable sont refusés par la
+validation de discord.js, et U+3164 — le remplisseur hangul, que discord.js
+accepte parce qu'Unicode le classe comme une lettre — se fait rejeter par l'API
+en `STRING_TYPE_REGEX` + `BASE_TYPE_BAD_LENGTH`. Le nom est donc `jet`, dans
+`NOM_ARGUMENT` ([`lib/commande-des.js`](src/lib/commande-des.js)). **N'y reviens
+pas** : c'est une limite ferme de Discord, pas un contournement à trouver.
+
+**L'affichage d'un jet ne dit que ce qui apprend quelque chose.** Un dé unique
+sans modificateur n'affiche que son total. Le détail n'apparaît qu'à partir de
+deux dés, d'un modificateur ou de dés écartés — sinon on ne saurait pas ce qui a
+été gardé. La version précédente écrivait la notation deux fois (`1d20 → 1d20
+[14]`), ce qu'Ilphrinn a relevé à juste titre.
+
+**Les émojis de dés se cherchent par nom, jamais par identifiant.**
+`guilde.emojis.cache.find((e) => e.name === 'd6_4')`. Rien à coder en dur, rien
+à reconfigurer si le serveur change, et si l'émoji n'a pas été téléversé le bot
+retombe sur le 🎲 sans un mot. Les images sont dans `assets/emoji/` avec leur
+attribution (Delapouite, game-icons.net, CC BY 3.0 — l'attribution est due, ne
+supprime pas le `LISEZ-MOI.txt`). Elles sont blanches sur transparent : très
+bien sur le thème sombre, faibles sur le thème clair. Aucun outil de retouche
+d'image sur cette machine — `convert` est le convertisseur de volumes de
+Windows, pas ImageMagick.
 
 ---
 

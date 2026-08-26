@@ -84,20 +84,44 @@ d'abord essayer `/d` en salon texte.
 
 ## 3. Les commandes
 
-### `/d` — les dés
+### `/d` et `/r` — les dés
 
-Un seul argument, insensible à la casse, tolérant aux espaces.
+Deux noms pour la même chose : `/r` parce que c'est ce que les joueurs tapent
+d'habitude. Un seul argument, insensible à la casse, tolérant aux espaces.
 
 | Tu écris | Tu obtiens |
 |---|---|
 | `/d 6` | `1d6` — un nombre nu vaut un dé de ce nombre de faces |
-| `/d 20` | `1d20` |
+| `/r 1d100` | trois chiffres, comme il se doit |
 | `/d 3d100` | trois dés de cent |
 | `/d 1D20` | la casse n'a aucune importance |
 | `/d 2d6+3` | modificateurs, additions et soustractions |
 | `/d 4d6kh3` | garde les 3 plus hauts (`kh`), `3d10kl1` garde le plus bas (`kl`) |
 
-Le détail du tirage est affiché, les dés écartés barrés, les extrêmes en gras.
+L'affichage ne dit que ce qui apprend quelque chose : un dé unique sans
+modificateur donne `🎲 14`, rien de plus. Dès qu'il y a plusieurs dés, un
+modificateur ou des dés écartés, le détail apparaît — sinon tu ne saurais pas
+ce qui a été gardé :
+
+```
+/d 20        →  🎲 14
+/d 2d6+3     →  🎲 9  ·  2d6 [4, 2] +3
+/d 4d6kh3    →  🎲 16  ·  4d6kh3 [~~1~~, 5, 5, 6]
+```
+
+Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras.
+
+> **L'argument s'appelle `jet` et ne peut pas être anonyme.** Discord impose un
+> nom à chaque option et l'affiche dans la barre de saisie. Testé le 26 août
+> 2026 : l'espace est refusé, et les caractères « vides » comme U+3164 sont
+> rejetés par l'API. Pour changer le libellé, une seule ligne dans
+> [`src/lib/commande-des.js`](src/lib/commande-des.js).
+
+**Les émojis de dés.** Si tu téléverses les huit images de `assets/emoji/` sur
+le serveur, un `/d 6` affiche la vraie face du dé, et un d20 sur 1 ou 20 sort
+le dé correspondant. Le bot les cherche **par nom**, pas par identifiant :
+rien à configurer, et s'ils ne sont pas là il retombe sur le 🎲 sans un mot.
+Le mode d'emploi et la licence sont dans `assets/emoji/LISEZ-MOI.txt`.
 
 Le tirage utilise `crypto.randomBytes` avec rejet des valeurs biaisées, pas
 `Math.random`. C'est gratuit et ça évite les discussions à la table. Bornes : 100
@@ -263,9 +287,11 @@ src/
     verif.js              diagnostic hors ligne
     commands/
         d.js              les dés
+        r.js              le même, sous le nom habituel des joueurs
         musique.js        le panneau et ses boutons
     lib/
         des.js            analyse et lancer, tirage non biaisé
+        commande-des.js   le cœur commun à /d et /r
         musique.js        bibliothèque, file d'attente, session vocale par serveur
         couleurs.js       la palette
         permissions.js    la liste qui produit le lien d'invitation
