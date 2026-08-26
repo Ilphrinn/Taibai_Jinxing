@@ -105,14 +105,15 @@ saurais pas ce qui a été gardé :
 
 ```
 /d 20        →  🎲 14
-/d 3d20      →  🎲 15  ·  🎲 1  ·  🎲 12   →   28
-/d 2d6+3     →  🎲 2  ·  🎲 4  ·  +3   →   9
-/d 4d6kh3    →  🎲 2  ·  🎲 3  ·  🎲 ~~1~~  ·  🎲 2   →   7
+/d 3d20      →  🎲 15	🎲 1	🎲 12	→ 28
+/d 2d6+3     →  🎲 2	🎲 4	+3	→ 9
+/d 4d6kh3    →  🎲 2	🎲 3	🎲 ~~1~~	🎲 2	→ 7
 ```
 
-Les dés écartés sont barrés, les extrêmes (1 et le maximum) en gras, et le
-total arrive après la flèche. Le 🎲 devient l'icône du dé concerné dès que tu
-as téléversé les émojis — voir plus bas.
+Les jets sont séparés par une **tabulation**, les dés écartés barrés, les
+extrêmes (1 et le maximum) en gras, et le total arrive après la flèche. Le 🎲
+devient l'icône du dé concerné dès que tu as téléversé les émojis — voir plus
+bas.
 
 > **L'argument s'appelle `jet` et ne peut pas être anonyme.** Discord impose un
 > nom à chaque option et l'affiche dans la barre de saisie. Testé le 26 août
@@ -126,17 +127,18 @@ chaque dé lancé s'affiche avec le sien : `d2`, `d4`, `d6`, `d10`, `d12`, `d20`
 
 ```
 /d 20          →  [d20] 14
-/d 3d20        →  [d20] 15  ·  [d20] 1  ·  [d20] 12   →   28
-/d 2d6+3       →  [d6] 2  ·  [d6] 4  ·  +3   →   9
-/d 4d6kh3      →  [d6] 2  ·  [d6] 3  ·  [d6] ~~1~~  ·  [d6] 2   →   7
+/d 3d20        →  [d20] 15	[d20] 1	[d20] 12	→ 28
+/d 2d6+3       →  [d6] 2	[d6] 4	+3	→ 9
+/d 4d6kh3      →  [d6] 2	[d6] 3	[d6] ~~1~~	[d6] 2	→ 7
 /r 1d100       →  [d10][d10] 73
-/d 2d20-1d6+3  →  [d20] 3  ·  [d20] 7  ·  −[d6] 5  ·  +3   →   8
+/d 2d20-1d6+3  →  [d20] 3	[d20] 7	−[d6] 5	+3	→ 8
 ```
 
 **Un émoji par dé** : c'est ce qui montre qu'il y a eu trois jets et non un
-seul. Les dés écartés par `kh`/`kl` sont barrés, les extrêmes (1 ou face
-maximale) en gras, et le total arrive après la flèche. Un dé seul sans
-modificateur n'affiche que son total — le détail n'apprendrait rien.
+seul. Les jets sont séparés par une tabulation, les dés écartés par `kh`/`kl`
+sont barrés, les extrêmes (1 ou face maximale) en gras, et le total arrive
+après la flèche. Un dé seul sans modificateur n'affiche que son total — le
+détail n'apprendrait rien.
 
 Le bot cherche les émojis **par nom**, jamais par identifiant : rien à
 configurer, et s'ils ne sont pas là il reprend le 🎲 sans que personne ne s'en
@@ -153,7 +155,7 @@ compose une icône **en additionnant les dés qu'il a** :
 ```
 
 La somme doit tomber juste — une approximation mentirait sur ce qui a été
-lancé — et s'arrête à trois icônes, au-delà desquelles elle ne se lit plus.
+lancé — et s'arrête à six icônes, ce qui couvre jusqu'au `d120`.
 
 **Quand la somme est impossible, c'est le `d6` qui prend le relais** — un vrai
 dé plutôt qu'un pictogramme dépareillé. Ça concerne d'abord les dés impairs, et
@@ -170,6 +172,10 @@ l'émoji `Power` s'il existe sur le serveur. Ce n'est pas de la coquetterie :
 un émoji personnalisé pèse une vingtaine de caractères, et le moteur accepte
 jusqu'à cent dés — cent émojis dépasseraient la limite de 2000 caractères d'un
 message Discord.
+
+La ligne produite est aussi **mesurée** avant l'envoi : un dé composé peut
+porter six icônes, et douze dés de ce genre frôleraient la limite. Si ça
+déborde, on repasse en forme compacte, quel que soit le nombre de dés.
 
 ```
 /d 20d6        →  [Power] 59  ·  20d6 [4, 1, 2, 3, 6, …]

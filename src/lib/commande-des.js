@@ -54,8 +54,8 @@ function emoji(guilde, nom) {
 const DENOMINATIONS = [20, 12, 10, 6, 4, 2];
 
 // Au-dela, la somme cesse de se lire d un coup d oeil et ne vaut plus mieux
-// qu un de generique.
-const MAX_PIECES = 3;
+// qu un de generique. Six couvre jusqu au d120.
+const MAX_PIECES = 6;
 
 function decomposer(faces) {
   const pieces = [];
@@ -111,15 +111,24 @@ const MAX_DES_DETAILLES = 12;
 // n existe pas sur le serveur, on retombe sur le 🎲.
 const EMOJI_TROP_DE_DES = 'Power';
 
+// Discord refuse les messages de plus de 2000 caracteres. Compter les des ne
+// suffit pas : un de compose peut porter six emojis, et un emoji personnalise
+// s ecrit « <:d20:1541805417653477499> ». Douze des ainsi composes frolent la
+// limite — on mesure donc la ligne produite plutot que de deviner.
+const LIMITE_MESSAGE = 1900;
+
+const separateur = '\t';
+
+function compacte(guilde, r) {
+  return `${emoji(guilde, EMOJI_TROP_DE_DES) ?? '🎲'} **${r.total}**  ·  ${r.detail}`;
+}
+
 function rendre(interaction, r) {
   const guilde = interaction.guild;
   const groupes = r.termes.filter((t) => t.type === 'des');
   const nbDes = groupes.reduce((n, t) => n + t.nb, 0);
 
-  if (nbDes > MAX_DES_DETAILLES) {
-    const s = emoji(guilde, EMOJI_TROP_DE_DES) ?? '🎲';
-    return `${s} **${r.total}**  ·  ${r.detail}`;
-  }
+  if (nbDes > MAX_DES_DETAILLES) return compacte(guilde, r);
 
   // Un seul de, sans modificateur : le total dit tout, le detailler serait un
   // doublon — c est ce qu Ilphrinn avait releve.
@@ -140,7 +149,8 @@ function rendre(interaction, r) {
     }
   }
 
-  return `${morceaux.join('  ·  ')}   →   **${r.total}**`;
+  const ligne = `${morceaux.join(separateur)}${separateur}→ **${r.total}**`;
+  return ligne.length > LIMITE_MESSAGE ? compacte(guilde, r) : ligne;
 }
 
 export async function executer(interaction) {

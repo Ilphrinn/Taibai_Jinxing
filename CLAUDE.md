@@ -159,10 +159,24 @@ pénible à diagnostiquer.
 **Un dé sans icône propre s'écrit comme une SOMME de dés existants.** `d26`
 devient `d20`+`d6`, `d8` devient `d6`+`d2`, `d30` devient `d20`+`d10`. Glouton,
 du plus grand au plus petit, exact — une approximation mentirait — et plafonné à
-trois pièces au-delà desquelles ça ne se lit plus. C'est Ilphrinn qui a demandé
+six pièces — plafond fixé par Ilphrinn, il couvre jusqu'au `d120`. C'est lui qui a demandé
 ce comportement, après avoir refusé le 🎲 générique.
 
 Effet secondaire heureux : le d8, dont l'image manque, n'en a plus besoin.
+
+
+**Les jets sont séparés par une tabulation**, choix d'Ilphrinn — le `·` était
+trop discret entre deux icônes. Discord rend le contenu des messages en
+`white-space: pre-wrap`, la tabulation est donc conservée et non réduite à une
+espace. Si l'écart paraît malgré tout trop mince chez lui, c'est `separateur`
+dans [`lib/commande-des.js`](src/lib/commande-des.js), une ligne.
+
+**Compter les dés ne suffit pas à tenir la limite de 2000 caractères.** Un dé
+composé porte jusqu'à six icônes, et un émoji personnalisé s'écrit
+`<:d20:1541805417653477499>` — vingt-cinq caractères. Douze dés ainsi composés
+font environ 1930 caractères. On **mesure donc la ligne produite** avant de
+l'envoyer, et on repasse en forme compacte si elle dépasse `LIMITE_MESSAGE`.
+Vérifié : `12d110` bascule, `10d110` passe à 1609.
 
 **Quand la somme est impossible, on prend le `d6`**, sur sa demande — un vrai dé
 plutôt qu'un pictogramme dépareillé. Tous les dés impairs y tombent, et c'est

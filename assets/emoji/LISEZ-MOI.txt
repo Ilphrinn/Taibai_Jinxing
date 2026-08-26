@@ -39,14 +39,15 @@ Un serveur non boosté accepte 50 émojis : six ne mangent pas grand-chose.
 Quand le bot s'en sert
 ----------------------
 
-Un émoji PAR DÉ : c'est ce qui montre qu'il y a eu plusieurs jets et non un
-seul. Les dés écartés par kh/kl sont barrés, les extrêmes (1 ou face maximale)
-en gras, et le total vient après la flèche.
+Un émoji PAR DÉ, les jets séparés par une TABULATION : c'est ce qui montre
+qu'il y a eu plusieurs jets et non un seul. Les dés écartés par kh/kl sont
+barrés, les extrêmes (1 ou face maximale) en gras, et le total vient après la
+flèche.
 
     /d 20          →  [d20] 14
-    /d 3d20        →  [d20] 15  ·  [d20] 1  ·  [d20] 12   →   28
-    /d 2d6+3       →  [d6] 2  ·  [d6] 4  ·  +3   →   9
-    /d 4d6kh3      →  [d6] 2  ·  [d6] 3  ·  [d6] ~~1~~  ·  [d6] 2   →   7
+    /d 3d20        →  [d20] 15	[d20] 1	[d20] 12	→ 28
+    /d 2d6+3       →  [d6] 2	[d6] 4	+3	→ 9
+    /d 4d6kh3      →  [d6] 2	[d6] 3	[d6] ~~1~~	[d6] 2	→ 7
     /r 1d100       →  [d10][d10] 73
 
 Un dé seul et sans modificateur n'affiche que son total : le détailler
@@ -60,8 +61,8 @@ une icône en ADDITIONNANT les dés qu'il a.
     /d 1d30        →  [d20][d10] 28        30 = 20 + 10
     /d 1d14        →  [d12][d2] 7          14 = 12 + 2
 
-La somme doit tomber juste, et s'arrête à trois icônes. Quand c'est impossible,
-c'est le d6 qui prend le relais :
+La somme doit tomber juste, et s'arrête à six icônes — ce qui couvre jusqu'au
+d120. Quand c'est impossible, c'est le d6 qui prend le relais :
 
     /d 1d27        →  [d6] 23
 
@@ -81,8 +82,10 @@ dés pour les montrer un par un.
     /d 20d6        →  [Power] 59  ·  20d6 [4, 1, 2, 3, 6, …]
 
 Ce n'est pas de la coquetterie : un émoji personnalisé pèse une vingtaine de
-caractères, le moteur accepte jusqu'à cent dés, et cent émojis dépasseraient la
-limite de 2000 caractères d'un message Discord.
+caractères et le moteur accepte jusqu'à cent dés. La longueur de la ligne est
+d'ailleurs mesurée en plus du compte : un dé composé peut porter six icônes, et
+douze dés de ce genre dépasseraient à eux seuls la limite de 2000 caractères
+d'un message Discord.
 
 Aucune image n'est fournie pour celui-là : prends ce que tu veux, nomme-le
 `Power`, et le bot le trouvera. S'il n'existe pas, il met le 🎲.
