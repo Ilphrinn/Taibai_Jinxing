@@ -506,6 +506,19 @@ autre application et n'apparaissent jamais.
 
 ## Sur l'hébergement
 
+**Mise à jour du 22 octobre 2026 : il quitte Railway pour le VPS OVH** du MJ
+(`debian@51.195.219.143`, accès par clé SSH, Docker ; y tournent déjà ff-chat-bot,
+arcane, hermes, etc.). Dossier `~/apps/taibai-jinxing`, `compose.yaml` et
+`deployer.sh` à la racine, sur le modèle de `FF - Chat/bot`. Le `.env` ne vit que sur
+le VPS (le MJ perdait ses `.env` en changeant de machine) ; `deployer.sh` demande le
+jeton en saisie masquée et en déduit l'Application ID. Ne jamais demander le jeton
+au MJ ni le lire : c'est lui qui le saisit. Le même jeton sert au site du Récit
+(dépôt Recit-Des-Immortels, secret Cloudflare `DISCORD_BOT_TOKEN`) pour lire
+`#annonces-rp` par l'API REST, ce qui demande « Message Content Intent » dans le
+portail : c'est la seule exception à « aucun intent privilégié », et elle ne touche
+pas le bot, dont les intents de passerelle restent `Guilds` et `GuildVoiceStates`.
+Ce qui suit décrit la situation d'avant.
+
 Il est sur Railway, déployé depuis GitHub (`Ilphrinn/Taibai_Jinxing` — le dépôt a été
 renommé le 26 août, l'ancien nom `Tabai_Jinxing` redirige encore). Je lui ai dit
 franchement que le gratuit de Railway n'existe plus vraiment, estimé sa consommation

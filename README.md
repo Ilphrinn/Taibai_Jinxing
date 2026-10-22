@@ -376,7 +376,43 @@ certificat. En revanche, celui-ci a deux besoins que n'a pas un bot ordinaire :
 **Il ne stocke rien.** Pas de base de données, donc **aucun volume à monter** : un
 redéploiement ne perd rien, sinon la musique en cours.
 
-### Sur Railway, avec le Dockerfile fourni
+### Sur le VPS OVH : là où il tourne
+
+Depuis le 22 octobre 2026, le bot tourne sur le VPS OVH (`debian@51.195.219.143`), à
+côté des autres bots, dans `~/apps/taibai-jinxing`, avec Docker. Une seule commande,
+depuis ce dossier :
+
+```bash
+./deployer.sh
+```
+
+Elle envoie le dépôt sur le serveur, reconstruit l'image, relance le bot et déclare
+les commandes. **Le `.env` ne vit que sur le VPS** : rien à garder sur ta machine. La
+première fois (ou après un **Reset Token**), le script demande le jeton, sans
+l'afficher, et en déduit l'Application ID. Le serveur de jeu est déjà renseigné. Pour
+changer de jeton : supprime la ligne `DISCORD_TOKEN=` du `.env` du serveur et relance
+le script.
+
+Les musiques posées dans `assets/musique/` partent avec le reste. Sur le serveur, ce
+dossier est monté en lecture seule dans le conteneur : une piste ajoutée apparaît
+dans le panneau en moins de 30 secondes, sans redémarrage.
+
+| Pour | Commande |
+|---|---|
+| Voir le journal | `ssh debian@51.195.219.143 'cd ~/apps/taibai-jinxing && docker compose logs -f'` |
+| Diagnostic | `ssh debian@51.195.219.143 'cd ~/apps/taibai-jinxing && docker compose exec bot node src/verif.js'` |
+| Arrêter | `ssh debian@51.195.219.143 'cd ~/apps/taibai-jinxing && docker compose down'` |
+
+Le conteneur redémarre seul après un plantage ou un redémarrage du VPS
+(`restart: unless-stopped`).
+
+### Sur Railway (abandonné le 22 octobre 2026)
+
+Le bot n'y a jamais réussi à se connecter. Supprime le service sur Railway, sinon il
+retente sa chance à chaque `git push`. La marche à suivre reste ci-dessous, pour
+mémoire.
+
+#### Avec le Dockerfile fourni
 
 Le dépôt contient déjà tout : `Dockerfile`, `railway.json`, `.dockerignore`.
 Railway voit le Dockerfile et s'en sert au lieu de Nixpacks.
